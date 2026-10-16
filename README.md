@@ -1,5 +1,7 @@
 # Espresso Physics Simulator (v3.0) ☕
 
+🌐 **Webアプリを起動（GitHub Pages）**: [https://imim100913-cell.github.io/espresso-physics-simulator/](https://imim100913-cell.github.io/espresso-physics-simulator/)
+
 最新のエスプレッソ抽出科学と多孔質流体力学に基づくリアルタイム物理シミュレーターです。豆の粉砕からタンピング、エスプレッソ抽出までをアニメーションとグラフで可視化します。
 
 ## 主な機能
