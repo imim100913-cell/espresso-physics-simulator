@@ -2,6 +2,8 @@
 (function () {
   "use strict";
   const M = window.BrewModel;
+  const R = window.BrewRuntime;
+  const mobile = R.isMobile();
   const $ = (id) => document.getElementById(id);
   const text = (id, value) => {
     $(id).textContent = value;
@@ -53,6 +55,8 @@
     gpu: null,
     gpuPending: false,
     gpuSample: null,
+    gpuStartupController: null,
+    visualDisabled: false,
   };
   let toastTimer;
   function notify(message) {
@@ -230,6 +234,8 @@
   }
   function releaseGpu() {
     state.generation++;
+    state.gpuStartupController?.abort();
+    state.gpuStartupController = null;
     state.gpu?.dispose();
     state.gpu = null;
     state.gpuPending = false;
@@ -373,9 +379,11 @@
 
   text(
     "physicsAvailability",
-    navigator.gpu
-      ? "WebGPU APIを検出しました。抽出開始時にGPUの利用可否を確認します。"
-      : "このブラウザでは簡易モデルを利用します。",
+    mobile
+      ? "スマホの自動設定は軽量計算です。GPU物理は手動で選択できます。"
+      : navigator.gpu
+        ? "GPUを利用できない場合は、軽量計算に切り替わります。"
+        : "このブラウザでは簡易モデルを利用します。",
   );
   $("physicsBackend").addEventListener("change", () =>
     text(
@@ -383,17 +391,54 @@
       $("physicsBackend").selectedOptions[0].textContent,
     ),
   );
+  if (mobile) {
+    $("renderQuality").value = "low";
+    text("physicsModeSummary", "スマホ向けの軽量計算");
+  }
+  function syncVisualControls() {
+    $("btnToggle3D").setAttribute(
+      "aria-pressed",
+      String(!state.visualDisabled),
+    );
+    text("btnToggle3D", state.visualDisabled ? "3Dを表示" : "3Dをオフ");
+    $("renderQuality").disabled = state.visualDisabled;
+  }
+  function disableScene() {
+    state.visualDisabled = true;
+    state.scene?.dispose();
+    state.scene = null;
+    $("visualFallback").hidden = false;
+    $("cameraHint").hidden = true;
+    syncVisualControls();
+  }
+  $("btnToggle3D").addEventListener("click", () => {
+    if (!state.visualDisabled) disableScene();
+    else {
+      state.visualDisabled = false;
+      syncVisualControls();
+      ensureScene();
+    }
+  });
   async function ensureScene() {
     if (
       state.scene ||
       state.sceneLoading ||
+      state.visualDisabled ||
       matchMedia("(prefers-reduced-motion: reduce)").matches
     )
       return;
     state.sceneLoading = true;
     try {
-      const { EspressoScene } = await import("./renderer.bundle.js?v=4.2.0");
-      state.scene = new EspressoScene("viewport3DContainer");
+      const { EspressoScene } = await import("./renderer.bundle.js?v=4.2.1");
+      if (state.visualDisabled || state.step !== "brew") return;
+      state.scene = new EspressoScene("viewport3DContainer", {
+        quality: $("renderQuality").value,
+        mobile,
+      });
+      state.scene.onError = () => {
+        disableScene();
+        notify("3D表示を停止しました。数値で抽出を続けます。");
+      };
       state.scene.setQuality($("renderQuality").value);
       $("renderQuality").value = state.scene.quality;
       state.scene.setCutaway(
@@ -410,10 +455,8 @@
         "webglcontextlost",
         (e) => {
           e.preventDefault();
-          state.scene?.dispose();
-          state.scene = null;
-          $("visualFallback").hidden = false;
-          $("cameraHint").hidden = true;
+          disableScene();
+          notify("3D表示を停止しました。数値で抽出を続けます。");
         },
       );
       if (state.step === "brew") {
@@ -422,6 +465,12 @@
           rpm: state.shot.params.grinderRPM,
         });
         state.scene.start(state.shot.duration + 7.5);
+        state.scene.currentTime = state.elapsed;
+        state.scene.config.sample =
+          state.gpuSample ??
+          M.sampleAt(state.shot, Math.max(0, state.elapsed - 7.5));
+        state.scene.step3DPhysics(0);
+        state.gpu?.attachScene(state.scene);
       }
     } catch {
       state.scene?.dispose();
@@ -453,6 +502,34 @@
         .forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
     }),
   );
+  function startSimplePlayback(message) {
+    state.gpuPending = false;
+    $("btnPrimary").disabled = false;
+    $("btnSkipBrew").disabled = false;
+    $("btnUseSimple").hidden = true;
+    text("btnSkipBrew", "アニメを省略して結果へ →");
+    text("backendStatus", message);
+    state.tickAt = performance.now();
+    cancelAnimationFrame(state.raf);
+    state.raf = requestAnimationFrame(tick);
+  }
+  function recoverSimple(message) {
+    const params = state.shot.params;
+    releaseGpu();
+    state.shot = M.simulate(params);
+    state.elapsed = 0;
+    state.paused = false;
+    state.scene?.updateConfig({ ...params, rpm: params.grinderRPM });
+    state.scene?.start(state.shot.duration + 7.5);
+    $("gpuDiagnostics").hidden = true;
+    renderPlayback();
+    updateDock();
+    startSimplePlayback(message + " · 軽量計算で最初から抽出しています");
+    notify(message + "。軽量計算に切り替えました。");
+  }
+  $("btnUseSimple").addEventListener("click", () =>
+    recoverSimple("軽量モードを選びました"),
+  );
   async function startBrew() {
     releaseGpu();
     const generation = state.generation;
@@ -467,10 +544,13 @@
     $("analyticsDetails").open = false;
     setStep("brew");
     text("yieldTarget", `目標 ${fmt(state.shot.params.targetYield)} g`);
-    state.gpuPending =
-      $("physicsBackend").value !== "simple" && !!navigator.gpu;
+    state.gpuPending = R.useGpu($("physicsBackend").value, {
+      mobile,
+      available: !!navigator.gpu,
+    });
     state.gpuSample = null;
     $("gpuDiagnostics").hidden = true;
+    $("btnUseSimple").hidden = !state.gpuPending;
     $("btnSkipBrew").disabled = state.gpuPending;
     text(
       "backendStatus",
@@ -492,72 +572,83 @@
       });
       state.scene.start(state.shot.duration + 7.5);
     }
+    // Rendering is optional; it must not gate the shot clock or GPU startup.
+    ensureScene();
     if (state.gpuPending) {
+      const controller = new AbortController();
+      state.gpuStartupController = controller;
       try {
-        await ensureScene();
         if (generation !== state.generation) return;
         const particleCount =
           $("physicsParticles").value === "auto"
-            ? matchMedia("(max-width:700px)").matches
+            ? mobile
               ? 32768
               : 100000
             : +$("physicsParticles").value;
-        const session = await window.GpuBrewSession.create({
-          recipe: state.shot.params,
-          particleCount,
-          scene: state.scene,
-          onNotice: notify,
-          onUpdate: ({ diagnostics: d, sample, elapsed, draining }) => {
-            if (generation !== state.generation) return;
-            state.gpuSample = sample;
-            state.elapsed = elapsed;
-            renderPlayback(0.02);
-            text(
-              "remainingTime",
-              draining
-                ? "流出した液体をカップへ集めています"
-                : `計算時間 ${fmt(d.hydraulicSeconds)} 秒`,
-            );
-            text(
-              "backendStatus",
-              `GPU物理 · ${d.particleCount.toLocaleString()} 粒子 · ${fmt(d.gpuBatchWallMilliseconds ?? 0, 0)} ms / バッチ`,
-            );
-            fillDL("gpuDiagnosticValues", [
-              ["水の流入", fmt(d.waterInKg * 1000, 3) + " g"],
-              ["液体の流出", fmt(d.outletSolutionKg * 1000, 3) + " g"],
-              ["粉の残量", fmt(d.dryMassKg * 1000, 3) + " g"],
-              ["粉の平均高さ", fmt(d.meanHeightMeters * 1000, 2) + " mm"],
-              ["水の保存誤差", (d.waterErrorKg * 1000).toExponential(2) + " g"],
-              [
-                "成分の保存誤差",
-                (d.coffeeErrorKg * 1000).toExponential(2) + " g",
-              ],
-              [
-                "液体の保存誤差",
-                (d.liquidErrorKg * 1000).toExponential(2) + " g",
-              ],
-              ["非有限値", String(d.nanCount)],
-            ]);
+        const session = await R.waitFor(
+          window.GpuBrewSession.create({
+            signal: controller.signal,
+            recipe: state.shot.params,
+            particleCount,
+            scene: state.scene,
+            onNotice: notify,
+            onUpdate: ({ diagnostics: d, sample, elapsed, draining }) => {
+              if (generation !== state.generation) return;
+              state.gpuSample = sample;
+              state.elapsed = elapsed;
+              renderPlayback(0.02);
+              text(
+                "remainingTime",
+                draining
+                  ? "流出した液体をカップへ集めています"
+                  : `計算時間 ${fmt(d.hydraulicSeconds)} 秒`,
+              );
+              text(
+                "backendStatus",
+                `GPU物理 · ${d.particleCount.toLocaleString()} 粒子 · ${fmt(d.gpuBatchWallMilliseconds ?? 0, 0)} ms / バッチ`,
+              );
+              fillDL("gpuDiagnosticValues", [
+                ["水の流入", fmt(d.waterInKg * 1000, 3) + " g"],
+                ["液体の流出", fmt(d.outletSolutionKg * 1000, 3) + " g"],
+                ["粉の残量", fmt(d.dryMassKg * 1000, 3) + " g"],
+                ["粉の平均高さ", fmt(d.meanHeightMeters * 1000, 2) + " mm"],
+                [
+                  "水の保存誤差",
+                  (d.waterErrorKg * 1000).toExponential(2) + " g",
+                ],
+                [
+                  "成分の保存誤差",
+                  (d.coffeeErrorKg * 1000).toExponential(2) + " g",
+                ],
+                [
+                  "液体の保存誤差",
+                  (d.liquidErrorKg * 1000).toExponential(2) + " g",
+                ],
+                ["非有限値", String(d.nanCount)],
+              ]);
+            },
+            onComplete: (shot) => {
+              if (generation !== state.generation) return;
+              state.shot = shot;
+              finishBrew();
+            },
+            onError: (error) => {
+              if (generation !== state.generation) return;
+              recoverSimple(
+                error.code === "GPU_TIMEOUT"
+                  ? "GPUの応答が止まりました"
+                  : "GPU計算を続けられませんでした",
+              );
+            },
+          }),
+          {
+            timeoutMs: 12000,
+            signal: controller.signal,
+            onTimeout: () => controller.abort(),
+            onLateResolve: (session) => session.dispose(),
+            message: "GPUの準備が時間内に終わりませんでした",
           },
-          onComplete: (shot) => {
-            if (generation !== state.generation) return;
-            state.shot = shot;
-            finishBrew();
-          },
-          onError: (error) => {
-            if (generation !== state.generation) return;
-            notify(error.message);
-            text(
-              "backendStatus",
-              error.message + " 設定に戻って、簡易モデルで再試行できます。",
-            );
-            state.paused = true;
-            state.gpu?.dispose();
-            $("btnSkipBrew").disabled = true;
-            $("btnPrimary").disabled = true;
-            updateDock();
-          },
-        });
+        );
         if (generation !== state.generation) {
           session.dispose();
           return;
@@ -570,22 +661,23 @@
         $("btnSkipBrew").disabled = false;
         session.paused = state.paused;
         session.start();
+        session.attachScene(state.scene);
         return;
       } catch (error) {
         if (generation !== state.generation) return;
-        state.gpuPending = false;
-        notify("GPU計算を開始できなかったため、簡易モデルに切り替えました。");
-        text("backendStatus", "簡易モデルで実行中 · " + error.message);
-        $("btnSkipBrew").disabled = false;
+        controller.abort();
+        startSimplePlayback("GPUを利用できなかったため、軽量計算で実行中");
+        notify("GPUを利用できなかったため、軽量計算に切り替えました。");
+        return;
       }
-    } else {
-      if ($("physicsBackend").value === "gpu")
-        notify("この端末はWebGPU非対応のため、簡易モデルで実行します");
-      ensureScene();
     }
-    state.tickAt = performance.now();
-    cancelAnimationFrame(state.raf);
-    state.raf = requestAnimationFrame(tick);
+    if ($("physicsBackend").value === "gpu")
+      notify("この端末ではGPUを利用できないため、軽量計算で実行します");
+    startSimplePlayback(
+      mobile
+        ? "スマホ向けの軽量計算で実行中"
+        : "簡易モデルで抽出を予測しています",
+    );
   }
   function tick(now) {
     const dt = Math.min(0.1, Math.max(0, (now - state.tickAt) / 1000));

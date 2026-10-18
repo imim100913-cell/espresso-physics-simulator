@@ -33,7 +33,7 @@ const presets = {
   stream: { eye: [1.2, 1.35, 2.8], target: [0, 0.87, 0] },
 };
 export class EspressoScene {
-  constructor(containerId) {
+  constructor(containerId, options = {}) {
     this.container = document.getElementById(containerId);
     this.config = {
       dose: 18,
@@ -43,8 +43,11 @@ export class EspressoScene {
       maxPressure: 9,
       targetYield: 36,
     };
-    this.mobile = matchMedia("(max-width: 700px)").matches;
-    this.quality = "balanced";
+    this.mobile =
+      options.mobile ??
+      (/Android|iPhone|iPad/i.test(navigator.userAgent) ||
+        matchMedia("(max-width: 700px)").matches);
+    this.quality = options.quality ?? (this.mobile ? "low" : "balanced");
     this.currentTime = 0;
     this.cutaway = true;
     this.isRunning = false;
@@ -57,19 +60,22 @@ export class EspressoScene {
     this.camera = new THREE.PerspectiveCamera(40, 1, 0.05, 40);
     this.camera.position.fromArray(presets.wide.eye);
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: this.quality !== "low",
       alpha: false,
       stencil: true,
       powerPreference: "low-power",
     });
     this.renderer.setPixelRatio(
-      Math.min(devicePixelRatio || 1, this.mobile ? 1.25 : 1.75),
+      Math.min(
+        devicePixelRatio || 1,
+        this.quality === "low" ? 1 : this.mobile ? 1.25 : 1.75,
+      ),
     );
     this.renderer.localClippingEnabled = true;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.25;
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = this.quality !== "low";
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.domElement.dataset.renderer = "espresso-pbr";
     this.container.append(this.renderer.domElement);
@@ -872,8 +878,15 @@ export class EspressoScene {
       this.dof.uniforms.focus.value = this.camera.position.distanceTo(
         this.controls.target,
       );
-    if (this.composer) this.composer.render();
-    else this.renderer.render(this.scene, this.camera);
+    try {
+      if (this.composer) this.composer.render();
+      else this.renderer.render(this.scene, this.camera);
+    } catch (error) {
+      cancelAnimationFrame(this.raf);
+      this.isRunning = false;
+      this.onError?.(error);
+      return;
+    }
     try {
       this.gpuView?.render();
     } catch (error) {

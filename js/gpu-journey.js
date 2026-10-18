@@ -4,6 +4,7 @@
   class GpuBrewSession {
     static async create({
       recipe,
+      signal,
       particleCount,
       scene,
       onUpdate,
@@ -11,7 +12,7 @@
       onError,
       onNotice,
     }) {
-      const module = await import("./renderer.bundle.js?v=4.2.0");
+      const module = await import("./renderer.bundle.js?v=4.2.1");
       const session = new GpuBrewSession();
       Object.assign(session, {
         recipe,
@@ -30,31 +31,21 @@
       });
       session.solver = await module.createCoupledSolver({
         recipe,
+        signal,
         particleCount,
         onLost: (message) => {
           if (!session.cancelled)
             session.fail(new Error("GPUとの接続が切れました。" + message));
         },
       });
-      if (scene) {
-        let view;
-        try {
-          view = new module.CoupledGpuView(session.solver, scene);
-          await view.init();
-          session.view = view;
-          view.onError = (error) => {
-            view.dispose();
-            session.view = null;
-            onNotice("粒子の表示を停止しました。物理計算は続行します。");
-          };
-        } catch (error) {
-          view?.dispose();
-          onNotice(
-            "この端末では粒子の3D表示を利用できません。数値計算は続行します。",
-          );
-          console.warn(error);
-        }
+      if (signal?.aborted) {
+        session.dispose();
+        throw signal.reason;
       }
+      session.signal = signal;
+      session.abort = () => session.dispose();
+      signal?.addEventListener("abort", session.abort, { once: true });
+      session.scene = scene;
       session.records.push({
         t: 0,
         p: 0,
@@ -67,9 +58,50 @@
       });
       return session;
     }
+    async attachScene(scene) {
+      if (
+        !scene ||
+        scene.disposed ||
+        this.cancelled ||
+        this.view ||
+        this.attaching
+      )
+        return;
+      this.attaching = true;
+      let view;
+      try {
+        const { CoupledGpuView } = await import("./renderer.bundle.js?v=4.2.1");
+        if (this.cancelled || scene.disposed) return;
+        view = new CoupledGpuView(this.solver, scene);
+        await window.BrewRuntime.waitFor(view.init(), {
+          timeoutMs: 8000,
+          signal: this.signal,
+          onTimeout: () => view.dispose(),
+          onLateResolve: () => view.dispose(),
+          message: "粒子表示の準備が時間内に終わりませんでした",
+        });
+        if (this.cancelled || scene.disposed) {
+          view.dispose();
+          return;
+        }
+        this.view = view;
+        view.onError = () => {
+          view.dispose();
+          this.view = null;
+          this.onNotice("粒子の表示を停止しました。数値計算は続行します。");
+        };
+      } catch (error) {
+        view?.dispose();
+        if (!this.cancelled)
+          this.onNotice("GPU粒子の表示を省略して、数値計算を続けます。");
+      } finally {
+        this.attaching = false;
+      }
+    }
     start() {
       if (this.running || this.cancelled) return;
       this.running = true;
+      this.attachScene(this.scene);
       this.schedule();
     }
     schedule() {
@@ -87,7 +119,7 @@
         let d,
           pressure = 0;
         if (this.ending || this.draining) {
-          d = await this.solver.drain({ steps: 10 });
+          d = await this.compute(this.solver.drain({ steps: 10 }));
           this.draining = true;
         } else {
           pressure =
@@ -97,11 +129,13 @@
                   before.hydraulicSeconds,
                   this.recipe,
                 );
-          d = await this.solver.advance({
-            mechanicalSubsteps: this.mechanicalBatch,
-            hydraulicSteps: 1,
-            pressure: pressure * 1e5,
-          });
+          d = await this.compute(
+            this.solver.advance({
+              mechanicalSubsteps: this.mechanicalBatch,
+              hydraulicSteps: 1,
+              pressure: pressure * 1e5,
+            }),
+          );
         }
         if (this.cancelled) return;
         if (d.gpuBatchWallMilliseconds > 0 && before.preparationProgress < 1)
@@ -168,6 +202,14 @@
         this.fail(error);
       }
     }
+    compute(promise) {
+      return window.BrewRuntime.waitFor(promise, {
+        timeoutMs: 8000,
+        signal: this.signal,
+        onTimeout: () => this.solver.dispose(),
+        message: "GPUの計算が時間内に終わりませんでした",
+      });
+    }
     finishEarly() {
       this.ending = true;
       this.paused = false;
@@ -180,16 +222,11 @@
     dispose() {
       if (this.cancelled) return;
       this.cancelled = true;
+      this.signal?.removeEventListener("abort", this.abort);
       this.running = false;
       clearTimeout(this.timer);
       this.view?.dispose();
-      const solver = this.solver;
-      if (solver?.busy) {
-        solver.device.queue
-          .onSubmittedWorkDone()
-          .finally(() => solver.dispose())
-          .catch(() => {});
-      } else solver?.dispose();
+      this.solver?.dispose();
     }
   }
   window.GpuBrewSession = GpuBrewSession;

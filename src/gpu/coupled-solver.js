@@ -8,6 +8,7 @@ export const CELL_STRIDE = 96;
 export const DROP_STRIDE = 64;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export async function createCoupledSolver(options = {}) {
+  options.signal?.throwIfAborted();
   if (!navigator.gpu) throw new Error("このブラウザはWebGPUに対応していません");
   const count =
     options.particleCount ??
@@ -27,9 +28,15 @@ export async function createCoupledSolver(options = {}) {
     (await navigator.gpu.requestAdapter({
       powerPreference: "high-performance",
     }));
+  options.signal?.throwIfAborted();
   if (!adapter) throw new Error("利用可能なGPUがありません");
+  const storageBytes = Math.max(
+    count * PARTICLE_STRIDE,
+    (options.gridDimension ?? 32) ** 3 * 16,
+    fluidCount * DROP_STRIDE,
+  );
   if (
-    adapter.limits.maxStorageBufferBindingSize < count * PARTICLE_STRIDE ||
+    adapter.limits.maxStorageBufferBindingSize < storageBytes ||
     adapter.limits.maxStorageBuffersPerShaderStage < 8
   )
     throw new Error("この端末では選択した粒子数を計算できません");
@@ -37,14 +44,15 @@ export async function createCoupledSolver(options = {}) {
     options.device ??
     (await adapter.requestDevice({
       requiredLimits: {
-        maxStorageBufferBindingSize: Math.max(
-          134217728,
-          count * PARTICLE_STRIDE,
-        ),
-        maxBufferSize: Math.max(268435456, count * PARTICLE_STRIDE),
+        maxStorageBufferBindingSize: storageBytes,
+        maxBufferSize: Math.max(16 * 1024 * 1024, storageBytes),
       },
     }));
   const ownDevice = !options.device;
+  if (options.signal?.aborted) {
+    if (ownDevice) device.destroy();
+    options.signal.throwIfAborted();
+  }
   const buffers = {},
     resources = [];
   const buffer = (
@@ -96,6 +104,14 @@ export async function createCoupledSolver(options = {}) {
   let disposed = false,
     lost = false,
     busy = false;
+  const disposeResources = () => {
+    if (disposed) return;
+    disposed = true;
+    options.signal?.removeEventListener("abort", disposeResources);
+    resources.forEach((b) => b.destroy());
+    if (ownDevice) device.destroy();
+  };
+  options.signal?.addEventListener("abort", disposeResources, { once: true });
   device.lost.then((info) => {
     if (!disposed) {
       lost = true;
@@ -107,6 +123,7 @@ export async function createCoupledSolver(options = {}) {
     errors.push(event.error.message);
   });
   async function pipelines(source, entryPoints, bindings) {
+    options.signal?.throwIfAborted();
     const module = device.createShaderModule({ code: common + "\n" + source });
     const info = await module.getCompilationInfo();
     const errors = info.messages.filter((m) => m.type === "error");
@@ -132,7 +149,8 @@ export async function createCoupledSolver(options = {}) {
       bindGroupLayouts: [layout],
     });
     const result = {};
-    for (const entryPoint of entryPoints)
+    for (const entryPoint of entryPoints) {
+      options.signal?.throwIfAborted();
       result[entryPoint] = {
         pipeline: await device.createComputePipelineAsync({
           label: entryPoint,
@@ -141,6 +159,8 @@ export async function createCoupledSolver(options = {}) {
         }),
         group,
       };
+    }
+    options.signal?.throwIfAborted();
     return result;
   }
   let m, h, f;
@@ -210,8 +230,7 @@ export async function createCoupledSolver(options = {}) {
       ],
     );
   } catch (error) {
-    resources.forEach((b) => b.destroy());
-    if (ownDevice) device.destroy();
+    disposeResources();
     throw error;
   }
   let recipe = {
@@ -473,8 +492,7 @@ export async function createCoupledSolver(options = {}) {
   try {
     await initialize();
   } catch (error) {
-    resources.forEach((b) => b.destroy());
-    if (ownDevice) device.destroy();
+    disposeResources();
     throw error;
   }
   return {
@@ -582,11 +600,6 @@ export async function createCoupledSolver(options = {}) {
         busy = false;
       }
     },
-    dispose() {
-      if (disposed) return;
-      disposed = true;
-      resources.forEach((b) => b.destroy());
-      if (ownDevice) device.destroy();
-    },
+    dispose: disposeResources,
   };
 }

@@ -41,6 +41,7 @@ export class CoupledGpuView {
   async init() {
     const d = this.device;
     const buffer = (size, usage) => {
+      if (this.disposed) throw new DOMException("View cancelled", "AbortError");
       const b = d.createBuffer({ size: Math.ceil(size / 16) * 16, usage });
       this.resources.push(b);
       return b;
@@ -271,6 +272,7 @@ export class CoupledGpuView {
       layout: this.modelLayout,
       entries: [{ binding: 0, resource: { buffer: this.models, size: 80 } }],
     });
+    if (this.disposed) throw new DOMException("View cancelled", "AbortError");
     this.scene.setGpuView(this);
     return this;
   }
@@ -546,7 +548,7 @@ export class CoupledGpuView {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    this.scene.setGpuView(null);
+    if (this.scene.gpuView === this) this.scene.setGpuView(null);
     this.textures.forEach((t) => t.destroy());
     this.resources.forEach((b) => b.destroy());
     this.presentBuffer?.destroy();
