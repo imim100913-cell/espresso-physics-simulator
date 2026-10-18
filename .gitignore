@@ -1,16 +1,16 @@
-# OS generated files
+# OS and editors
 .DS_Store
 Thumbs.db
 Desktop.ini
-
-# Editor directories and files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Logs & temp files
+# Logs, dependencies, and generated test output
 *.log
 tmp/
 temp/
+node_modules/
+test-results/
+playwright-report/
