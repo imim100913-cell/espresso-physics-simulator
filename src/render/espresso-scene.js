@@ -65,6 +65,10 @@ export class EspressoScene {
       stencil: true,
       powerPreference: "low-power",
     });
+    this.renderer.debug.onShaderError = () => {
+      this.renderError = new Error("3Dシェーダーを利用できません");
+      console.error("WebGL shader compilation failed");
+    };
     this.renderer.setPixelRatio(
       Math.min(
         devicePixelRatio || 1,
@@ -886,6 +890,24 @@ export class EspressoScene {
       this.isRunning = false;
       this.onError?.(error);
       return;
+    }
+    if (this.renderError || this.renderer.getContext().isContextLost()) {
+      cancelAnimationFrame(this.raf);
+      this.isRunning = false;
+      this.onError?.(
+        this.renderError ?? new Error("3Dコンテキストが失われました"),
+      );
+      return;
+    }
+    if (!this.hasRenderedFrame) {
+      const gl = this.renderer.getContext();
+      if (gl.getError() !== gl.NO_ERROR) {
+        cancelAnimationFrame(this.raf);
+        this.onError?.(new Error("3D描画を開始できませんでした"));
+        return;
+      }
+      this.hasRenderedFrame = true;
+      this.onFirstFrame?.();
     }
     try {
       this.gpuView?.render();

@@ -56,8 +56,10 @@
     gpuPending: false,
     gpuSample: null,
     gpuStartupController: null,
-    visualDisabled: false,
+    visualDisabled:
+      mobile || matchMedia("(prefers-reduced-motion: reduce)").matches,
   };
+  const illustration = new window.BrewIllustration($("brewIllustration"));
   let toastTimer;
   function notify(message) {
     text("toast", message);
@@ -402,7 +404,12 @@
     );
     text("btnToggle3D", state.visualDisabled ? "3Dを表示" : "3Dをオフ");
     $("renderQuality").disabled = state.visualDisabled;
+    $("btnCutaway").disabled = state.visualDisabled;
+    document
+      .querySelectorAll("[data-camera]")
+      .forEach((b) => (b.disabled = state.visualDisabled));
   }
+  syncVisualControls();
   function disableScene() {
     state.visualDisabled = true;
     state.scene?.dispose();
@@ -420,16 +427,10 @@
     }
   });
   async function ensureScene() {
-    if (
-      state.scene ||
-      state.sceneLoading ||
-      state.visualDisabled ||
-      matchMedia("(prefers-reduced-motion: reduce)").matches
-    )
-      return;
+    if (state.scene || state.sceneLoading || state.visualDisabled) return;
     state.sceneLoading = true;
     try {
-      const { EspressoScene } = await import("./renderer.bundle.js?v=4.2.1");
+      const { EspressoScene } = await import("./renderer.bundle.js?v=4.2.2");
       if (state.visualDisabled || state.step !== "brew") return;
       state.scene = new EspressoScene("viewport3DContainer", {
         quality: $("renderQuality").value,
@@ -437,15 +438,19 @@
       });
       state.scene.onError = () => {
         disableScene();
-        notify("3D表示を停止しました。数値で抽出を続けます。");
+        notify("軽量アニメーションで抽出を続けます。");
       };
       state.scene.setQuality($("renderQuality").value);
       $("renderQuality").value = state.scene.quality;
       state.scene.setCutaway(
         $("btnCutaway").getAttribute("aria-pressed") === "true",
       );
-      $("visualFallback").hidden = true;
-      $("cameraHint").hidden = false;
+      const scene = state.scene;
+      scene.onFirstFrame = () => {
+        if (state.scene !== scene || state.visualDisabled) return;
+        $("visualFallback").hidden = true;
+        $("cameraHint").hidden = false;
+      };
       state.scene.renderer.domElement.setAttribute(
         "aria-label",
         "豆の粉砕・タンピング・抽出の3Dアニメーション",
@@ -455,8 +460,9 @@
         "webglcontextlost",
         (e) => {
           e.preventDefault();
+          if (state.scene !== scene) return;
           disableScene();
-          notify("3D表示を停止しました。数値で抽出を続けます。");
+          notify("軽量アニメーションで抽出を続けます。");
         },
       );
       if (state.step === "brew") {
@@ -473,11 +479,9 @@
         state.gpu?.attachScene(state.scene);
       }
     } catch {
-      state.scene?.dispose();
-      state.scene = null;
-      $("visualFallback").hidden = false;
-      $("cameraHint").hidden = true;
+      disableScene();
       $("viewport3DContainer").querySelector("canvas")?.remove();
+      notify("軽量アニメーションで抽出を表示します。");
     } finally {
       state.sceneLoading = false;
     }
@@ -698,6 +702,7 @@
       shot = state.shot,
       extractT = Math.max(0, elapsed - 7.5),
       sample = state.gpuSample ?? M.sampleAt(shot, extractT);
+    illustration.update({ elapsed, sample, params: shot.params });
     const stage = elapsed < 4.5 ? 0 : elapsed < 7.5 ? 1 : 2;
     const phase = ["豆を挽く", "粉を詰める", "お湯を通す"][stage];
     const tips = [
