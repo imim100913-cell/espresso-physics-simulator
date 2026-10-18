@@ -982,17 +982,22 @@ body.mode-basic .advanced-only {
   justify-content: center;
   text-align: center;
 }
-.fallback-cup {
-  font-size: 90px;
-  animation: breathe 3s infinite;
+.brew-illustration {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
-.visual-fallback p {
-  font-size: 12px;
-  margin-top: 20px;
-}
-.visual-fallback small {
-  font-size: 10px;
-  color: #a8b9a3;
+.illustration-mode {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: #c3cbbb;
+  background: #15201bbf;
+  padding: 4px 9px;
+  border-radius: 20px;
+  pointer-events: none;
 }
 .live-metrics {
   display: grid;

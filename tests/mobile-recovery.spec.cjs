@@ -167,6 +167,7 @@ test("mobile WebGL context loss leaves extraction and result controls usable", a
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await page.locator("#btnPrimary").click();
+  await page.locator("#btnToggle3D").click();
   const canvas = page.locator('canvas[data-renderer="espresso-pbr"]');
   await expect(canvas).toBeVisible({ timeout: 30000 });
   await page.evaluate(() => {
