@@ -21,12 +21,37 @@ async function setup(page) {
   await page.locator("#btnPrimary").click();
   return requests;
 }
-async function stageShot(page, info, name) {
-  await page
-    .locator("#viewport3DContainer")
-    .screenshot({ path: info.outputPath(name + ".png") });
+async function advanceTo(page, seconds) {
+  const elapsed = parseFloat(
+    await page.locator("#simTimerDisplay").innerText(),
+  );
+  await page.clock.runFor(Math.max(0, seconds - elapsed) * 1000);
 }
-test("mobile plays grinding, compaction, wetting and actual cup filling without loading GPU code", async ({
+async function stageShot(page, info, name) {
+  await page.locator("#viewport3DContainer").screenshot({
+    path: info.outputPath(name + ".png"),
+    style: ".action-dock { visibility: hidden; }",
+  });
+}
+const props = [
+  "Weigh",
+  "Grinder",
+  "Basket",
+  "Wdt",
+  "Tamper",
+  "PrepMat",
+  "Machine",
+  "Cup",
+  "ShotScale",
+];
+async function equipment(page, visible) {
+  for (const prop of props) {
+    if (visible.includes(prop))
+      await expect(page.locator("#art" + prop)).toBeVisible();
+    else await expect(page.locator("#art" + prop)).toBeHidden();
+  }
+}
+test("barista scenes show only each step's tools, then wetting and measured cup filling without GPU", async ({
   page,
 }, info) => {
   const errors = [];
@@ -34,27 +59,69 @@ test("mobile plays grinding, compaction, wetting and actual cup filling without 
   const requests = await setup(page);
   const art = page.locator("#brewIllustration");
   await expect(art).toBeVisible();
-  await expect(page.locator("#btnToggle3D")).toHaveText("3Dを表示");
-  const initialBed = await page.locator("#artBed").getAttribute("d");
-  await page.clock.runFor(4000);
+  await expect(page.locator("#viewSettings")).not.toHaveAttribute("open");
+  // No machine, grinder, portafilter or cup belongs in bean weighing.
+  await advanceTo(page, 2.5);
+  await expect(art).toHaveAttribute("data-phase", "weigh");
+  await equipment(page, ["Weigh"]);
+  await expect(page.locator("#artWeighReadout")).toHaveText("18.0 g");
+  await expect(page.locator("#nextPhaseLabel")).toHaveText("豆を挽く");
+  await expect(page.locator("#extractionReadings")).toBeHidden();
+  await stageShot(page, info, "01-weigh");
+
+  await advanceTo(page, 6.6);
+  await expect(art).toHaveAttribute("data-phase", "grind");
+  await equipment(page, ["Grinder", "Basket"]);
   const looseBed = await page.locator("#artBed").getAttribute("d");
-  expect(looseBed).not.toBe(initialBed);
-  const bounds = await page.locator("#artBed").evaluate((node) => ({
-    height: node.getBBox().height,
-    width: node.getBBox().width,
-  }));
+  const bounds = await page
+    .locator("#artBed")
+    .evaluate((node) => ({
+      height: node.getBBox().height,
+      width: node.getBBox().width,
+    }));
   expect(bounds.height).toBeGreaterThan(30);
   expect(bounds.height).toBeLessThan(70);
   expect(bounds.width).toBeCloseTo(98, 0);
-  await expect(art).toHaveAttribute("data-phase", "grind");
-  await stageShot(page, info, "grind");
-  await page.clock.runFor(2400);
-  const compact = await page.locator("#artBed").getAttribute("d");
-  expect(compact).not.toBe(looseBed);
+  await stageShot(page, info, "02-grind");
+
+  await advanceTo(page, 8.7);
+  await expect(art).toHaveAttribute("data-phase", "distribute");
+  await equipment(page, ["Basket", "Wdt", "PrepMat"]);
+  await expect(page.locator("#phaseDistribute")).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await expect(page.locator("#nextPhaseLabel")).toHaveText("水平にタンピング");
+  await stageShot(page, info, "03-wdt");
+
+  await advanceTo(page, 11.9);
   await expect(art).toHaveAttribute("data-phase", "tamp");
-  await stageShot(page, info, "tamp");
-  await page.clock.runFor(9000);
+  await equipment(page, ["Basket", "Tamper", "PrepMat"]);
+  expect(await page.locator("#artBed").getAttribute("d")).not.toBe(looseBed);
+  expect(
+    await page.locator("#artBed").evaluate((n) => n.getBBox().height),
+  ).toBeLessThan(bounds.height);
+  await stageShot(page, info, "04-tamp");
+
+  await advanceTo(page, 14.1);
+  await expect(art).toHaveAttribute("data-phase", "setup");
+  await equipment(page, ["Machine", "Basket", "Cup", "ShotScale"]);
+  await expect(page.locator("#artShotWeight")).toHaveText("0.0 g");
+  expect(
+    Number(await page.locator("#artStreams").getAttribute("opacity")),
+  ).toBe(0);
+  expect(
+    Number(await page.locator("#artWetFront").getAttribute("height")),
+  ).toBe(0);
+  await expect(page.locator("#liveShotTime")).toHaveText("0.0 s");
+  await stageShot(page, info, "05-setup");
+
+  await advanceTo(page, 24);
   await expect(art).toHaveAttribute("data-phase", "extract");
+  await equipment(page, ["Machine", "Basket", "Cup", "ShotScale"]);
+  await expect(page.locator("#preparationReading")).toBeHidden();
+  await expect(page.locator("#extractionReadings")).toBeVisible();
+  await expect(page.locator("#nextPhaseLabel")).toContainText("レポート");
   expect(
     Number(await page.locator("#artStreams").getAttribute("opacity")),
   ).toBeGreaterThan(0.5);
@@ -65,52 +132,75 @@ test("mobile plays grinding, compaction, wetting and actual cup filling without 
     Number(await page.locator("#artCupLiquid").getAttribute("y")),
   ).toBeLessThan(370);
   const live = parseFloat(await page.locator("#liveYield").innerText());
-  const fill = Number(await art.getAttribute("data-fill"));
-  expect(fill).toBeCloseTo(live / 36, 2);
-  await stageShot(page, info, "extract");
+  expect(Number(await art.getAttribute("data-fill"))).toBeCloseTo(live / 36, 2);
+  const time = parseFloat(await page.locator("#liveShotTime").innerText());
+  const elapsed = parseFloat(
+    await page.locator("#simTimerDisplay").innerText(),
+  );
+  expect(elapsed - time).toBeCloseTo(15, 0);
+  await stageShot(page, info, "06-extract");
   expect(requests).toEqual([]);
   expect(await page.evaluate(() => gpuCalls)).toBe(0);
   expect(errors).toEqual([]);
 });
-test("pausing freezes the complete illustration and resuming follows the shot clock", async ({
+test("pausing freezes tools and stage cuts; resuming follows the same clock", async ({
   page,
 }) => {
   await setup(page);
-  await page.clock.runFor(12000);
-  await page.locator("#btnPrimary").click();
-  const frozen = await page.locator("#brewIllustration").innerHTML();
-  await page.clock.runFor(2000);
-  expect(await page.locator("#brewIllustration").innerHTML()).toBe(frozen);
-  await page.locator("#btnPrimary").click();
-  await page.clock.runFor(2000);
-  expect(await page.locator("#brewIllustration").innerHTML()).not.toBe(frozen);
+  for (const t of [1.5, 8.5, 23]) {
+    await advanceTo(page, t);
+    await page.locator("#btnPrimary").click();
+    const art = page.locator("#brewIllustration");
+    const frozen = await art.innerHTML(),
+      phase = await art.getAttribute("data-phase");
+    await page.clock.runFor(2500);
+    expect(await art.innerHTML()).toBe(frozen);
+    await expect(art).toHaveAttribute("data-phase", phase);
+    await page.locator("#btnPrimary").click();
+    await page.clock.runFor(700);
+    expect(await art.innerHTML()).not.toBe(frozen);
+  }
 });
-test("failed 3D initialization preserves a moving extraction illustration", async ({
+test("3D is deferred to extraction and failed initialization preserves the moving illustration", async ({
   page,
 }) => {
-  await setup(page);
+  const requests = await setup(page);
   await page.route("**/renderer.bundle.js*", (r) =>
     r.fulfill({
       contentType: "text/javascript",
       body: 'export class EspressoScene{constructor(){throw new Error("GPU initialization failed");}}',
     }),
   );
+  await page.locator("#viewSettings summary").click();
   await page.locator("#btnToggle3D").click();
+  await expect(page.locator("#btnToggle3D")).toHaveText("3Dをオフ");
+  await advanceTo(page, 5);
+  expect(requests).toEqual([]);
+  await expect(page.locator("#artMachine")).toBeHidden();
+  await advanceTo(page, 24);
   await expect(page.locator("#btnToggle3D")).toHaveText("3Dを表示");
   await expect(page.locator("#brewIllustration")).toBeVisible();
-  await page.clock.runFor(15000);
   expect(
     Number(await page.locator("#artCupLiquid").getAttribute("y")),
   ).toBeLessThan(370);
   await page.locator("#btnSkipBrew").click();
   await expect(page.locator("#resultYield")).toHaveText("36.0 g");
 });
-test("reduced motion suppresses decorative particles while measured cup progress remains visible", async ({
+test("recipe weight and temperature are reflected in the matching scenes; reduced motion keeps progress", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await setup(page);
-  await page.clock.runFor(2000);
+  await page.locator("#btnCancelBrew").click();
+  await page.locator("#paramDose").fill("20");
+  await page.locator("#paramDose").dispatchEvent("input");
+  await page.locator("#paramWaterTemp").fill("95");
+  await page.locator("#paramWaterTemp").dispatchEvent("input");
+  await page.locator("#btnPrimary").click();
+  await advanceTo(page, 2.5);
+  await expect(page.locator("#artWeighReadout")).toHaveText("20.0 g");
+  await expect(page.locator("#prepMetricValue")).toHaveText("20.0 g");
+  await advanceTo(page, 6);
   expect(
     await page
       .locator("#artGrounds circle")
@@ -118,8 +208,9 @@ test("reduced motion suppresses decorative particles while measured cup progress
         nodes.every((n) => Number(n.getAttribute("opacity")) === 0),
       ),
   ).toBe(true);
-  await page.clock.runFor(14000);
+  await advanceTo(page, 24);
   await expect(page.locator("#brewIllustration")).toBeVisible();
+  await expect(page.locator("#artMachineTemp")).toHaveText("95°C");
   expect(
     Number(await page.locator("#artCupLiquid").getAttribute("y")),
   ).toBeLessThan(370);

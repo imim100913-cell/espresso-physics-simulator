@@ -66,9 +66,10 @@ for (const viewport of [
     expect(await page.evaluate(() => gpuCalls)).toBe(0);
     await expect(page.locator("#renderQuality")).toHaveValue("low");
     await expect(page.locator("#btnSkipBrew")).toBeEnabled();
+    await page.locator("#viewSettings summary").click();
     await page.locator("#btnToggle3D").click();
     await expect(page.locator("#visualFallback")).toBeVisible();
-    await page.clock.runFor(31500);
+    await page.clock.runFor(40000);
     await expect(page.locator("#resultScreen")).toBeVisible();
     await expect(page.locator("#resultYield")).toHaveText("36.0 g");
     expect(
@@ -90,6 +91,9 @@ test("stalled GPU startup expires, ignores a late adapter, and completes a simpl
     .poll(() => page.evaluate(() => !!window.adapterRequested))
     .toBe(true);
   await expect(page.locator("#btnUseSimple")).toBeVisible();
+  await expect(page.locator("#artWeigh")).toBeVisible();
+  await expect(page.locator("#artScene")).toHaveAttribute("opacity", "1.000");
+  await expect(page.locator("#artMachine")).toBeHidden();
   await page.clock.runFor(12500);
   await expect(page.locator("#backendStatus")).toContainText("軽量計算");
   await expect(page.locator("#btnSkipBrew")).toBeEnabled();
@@ -159,22 +163,38 @@ test("GPU failure during a shot restarts with an explicitly labelled simple resu
   await expect(page.locator("#resultYield")).toHaveText("36.0 g");
   await expect(page.locator("#resultSource")).toContainText("簡易モデル");
 });
-test("mobile WebGL context loss leaves extraction and result controls usable", async ({
+test("3D stays out of preparation on repeat, and context loss preserves extraction", async ({
   page,
 }) => {
   test.setTimeout(60000);
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
+  await page.clock.install();
   await page.locator("#btnPrimary").click();
+  await page.clock.runFor(16000);
+  await page.locator("#btnPrimary").click();
+  await page.locator("#viewSettings summary").click();
   await page.locator("#btnToggle3D").click();
   const canvas = page.locator('canvas[data-renderer="espresso-pbr"]');
   await expect(canvas).toBeVisible({ timeout: 30000 });
+  await expect(page.locator("#visualFallback")).toBeHidden({ timeout: 30000 });
+  await page.locator("#btnSkipBrew").click();
+  await page.locator("#btnPrimary").click();
+  await page.locator("#btnPrimary").click();
+  await expect(canvas).toBeHidden();
+  await expect(page.locator("#brewIllustration")).toHaveAttribute(
+    "data-phase",
+    "weigh",
+  );
+  await expect(page.locator("#artMachine")).toBeHidden();
+  await expect(page.locator("#artGrinder")).toBeHidden();
+  await page.clock.runFor(16000);
+  await page.locator("#btnPrimary").click();
+  await expect(canvas).toBeVisible();
   await page.evaluate(() => {
-    const canvas = document.querySelector(
-      'canvas[data-renderer="espresso-pbr"]',
-    );
-    canvas
+    document
+      .querySelector('canvas[data-renderer="espresso-pbr"]')
       .getContext("webgl2")
       .getExtension("WEBGL_lose_context")
       .loseContext();
