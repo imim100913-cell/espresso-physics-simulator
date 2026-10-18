@@ -104,6 +104,9 @@ export class EspressoScene {
     this.buildMachine();
     this.buildPowder();
     this.buildDosing();
+    // The guided journey introduces preparation tools in dedicated SVG scenes.
+    this.preparationTools.visible = !options.extractionOnly;
+    this.beans.visible = !options.extractionOnly;
     this.liquid = new LiquidSurface(this.scene, {
       top: yBasket - 0.015,
       bottom: 0.2,
@@ -392,8 +395,10 @@ export class EspressoScene {
       0.005,
       0,
     );
+    this.preparationTools = new THREE.Group();
+    this.scene.add(this.preparationTools);
     this.tamper = new THREE.Group();
-    this.scene.add(this.tamper);
+    this.preparationTools.add(this.tamper);
     this.mesh(
       turned(roundedProfile(0.439, 0.055, 0.015)),
       this.brushed,
@@ -421,11 +426,11 @@ export class EspressoScene {
     );
     this.grinder = new THREE.Group();
     this.grinder.position.set(-1.05, 0, -0.05);
-    this.scene.add(this.grinder);
+    this.preparationTools.add(this.grinder);
     this.mesh(
       turned(roundedProfile(0.09, 1.8, 0.025)),
       this.brushed,
-      this.scene,
+      this.preparationTools,
       -1.12,
       0.85,
       -0.24,
@@ -433,7 +438,7 @@ export class EspressoScene {
     this.mesh(
       turned(roundedProfile(0.34, 0.1, 0.025)),
       rubber,
-      this.scene,
+      this.preparationTools,
       -1.12,
       -0.01,
       -0.24,
@@ -441,6 +446,7 @@ export class EspressoScene {
     this.tamperArm = this.mesh(
       turned(roundedProfile(0.025, 1, 0.008), 32),
       this.brushed,
+      this.preparationTools,
     );
     this.armAnchor = new THREE.Vector3(0, 2.37, -0.67);
     this.armEnd = new THREE.Vector3();
@@ -521,6 +527,7 @@ export class EspressoScene {
     this.chute = this.mesh(
       new THREE.TubeGeometry(chutePath, 40, 0.038, 12, false),
       this.brushed,
+      this.preparationTools,
     );
     // Hidden during tamping by mechanical translation, never a hard visibility cut.
     this.mesh(
@@ -864,6 +871,7 @@ export class EspressoScene {
     this.raf = requestAnimationFrame(this.animate);
     if (
       document.hidden ||
+      this.renderer.domElement.hidden ||
       this.container.closest("[hidden]") ||
       now - this.lastFrame < 1000 / (this.quality === "low" ? 24 : 30)
     )

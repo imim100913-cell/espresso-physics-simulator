@@ -12,7 +12,7 @@
       content="レシピを選び、抽出を見守り、一杯を振り返る。スマホで学ぶエスプレッソシミュレーター。"
     />
     <title>Espresso Lab — あなたの一杯を見つけよう</title>
-    <link rel="stylesheet" href="index.css?v=4.2.2" />
+    <link rel="stylesheet" href="index.css?v=4.3.0" />
   </head>
   <body class="mode-basic" data-step="setup">
     <a class="skip-link" href="#mainContent">メインコンテンツへ</a>
@@ -637,10 +637,12 @@
         <div class="screen-heading">
           <p class="eyebrow">02 / BREW</p>
           <h1 id="brewTitle" tabindex="-1">一杯ができるまで。</h1>
-          <p id="brewDescription">まずは豆を挽き、粉を均一に詰めます。</p>
+          <p id="brewDescription">
+            一杯分の豆を量るところから、順番に見ていきましょう。
+          </p>
         </div>
         <div class="brew-status">
-          <span id="phasePill" class="status-pill">豆を挽く</span
+          <span id="phasePill" class="status-pill">豆を量る</span
           ><span id="remainingTime">準備中</span>
         </div>
         <div
@@ -653,50 +655,15 @@
         >
           <div id="brewProgressFill"></div>
         </div>
-        <ol class="phase-steps">
-          <li id="phaseGrind" class="active">豆を挽く</li>
-          <li id="phaseTamp">粉を詰める</li>
-          <li id="phaseExtract">お湯を通す</li>
-          <li id="phaseDone">できあがり</li>
+        <ol class="phase-steps" aria-label="バリスタの作業工程">
+          <li id="phaseWeigh" class="active" aria-current="step">計量</li>
+          <li id="phaseGrind">粉砕</li>
+          <li id="phaseDistribute">ほぐす</li>
+          <li id="phaseTamp">圧密</li>
+          <li id="phaseSetup">セット</li>
+          <li id="phaseExtract">抽出</li>
+          <li id="phaseDone">完成</li>
         </ol>
-        <div class="render-toolbar" role="group" aria-label="3D表示の設定">
-          <button id="btnToggle3D" class="render-button" aria-pressed="true">
-            3Dをオフ
-          </button>
-          <button id="btnCutaway" class="render-button" aria-pressed="true">
-            断面表示
-          </button>
-          <div class="camera-buttons" role="group" aria-label="カメラの視点">
-            <button
-              class="render-button"
-              data-camera="wide"
-              aria-pressed="true"
-            >
-              全体
-            </button>
-            <button
-              class="render-button"
-              data-camera="section"
-              aria-pressed="false"
-            >
-              パック
-            </button>
-            <button
-              class="render-button"
-              data-camera="stream"
-              aria-pressed="false"
-            >
-              液流
-            </button>
-          </div>
-          <label class="quality-label" for="renderQuality"
-            >画質<select id="renderQuality">
-              <option value="low">省電力</option>
-              <option value="balanced" selected>標準</option>
-              <option value="cinematic">シネマ（外観）</option>
-            </select></label
-          >
-        </div>
         <div class="stage-card">
           <div class="viewport" id="viewport3DContainer">
             <div id="visualFallback" class="visual-fallback">
@@ -705,7 +672,7 @@
                 class="brew-illustration"
                 viewBox="100 0 440 400"
                 role="img"
-                aria-label="豆の粉砕、タンピング、抽出液がカップにたまる様子"
+                aria-label="豆の計量から始まる、バリスタの作業工程"
               >
                 <defs>
                   <linearGradient id="artSteel">
@@ -747,63 +714,276 @@
                     <path d="M258 307 Q263 369 320 371 Q377 369 382 307Z" />
                   </clipPath>
                 </defs>
-                <g aria-hidden="true">
+                <g id="artScene" aria-hidden="true">
                   <ellipse
                     cx="320"
-                    cy="384"
+                    cy="394"
                     rx="193"
                     ry="8"
                     fill="#09130e"
                     opacity=".5"
                   />
-                  <path
-                    d="M180 351V70Q180 49 203 49H281"
-                    fill="none"
-                    stroke="#1a2721"
-                    stroke-width="25"
-                  />
-                  <path
-                    d="M180 351V70Q180 49 203 49H281"
-                    fill="none"
-                    stroke="url(#artSteel)"
-                    stroke-width="15"
-                  />
-                  <path d="M159 354H213L227 368H145Z" fill="url(#artSteel)" />
-                  <path
-                    d="M122 375H472L485 386H109Z"
-                    fill="#263b2e"
-                    stroke="#65816a"
-                  />
-                  <text
-                    x="160"
-                    y="330"
-                    fill="#8ca58e"
-                    font-size="9"
-                    font-family="monospace"
-                    transform="rotate(-90 160 330)"
-                  >
-                    ESPRESSO LAB
-                  </text>
-                  <g id="artHead" opacity="0">
-                    <path
-                      d="M270 126H370L381 146V162H259V146Z"
-                      fill="url(#artSteel)"
-                      stroke="#d9e3cf"
+                  <g id="artWeigh">
+                    <ellipse
+                      cx="320"
+                      cy="349"
+                      rx="116"
+                      ry="8"
+                      fill="#09130e"
+                      opacity=".7"
                     />
-                    <path
-                      d="M272 164H368"
-                      stroke="#5a7064"
-                      stroke-width="4"
-                      stroke-dasharray="2 4"
-                    />
-                    <path
-                      d="M286 171V188M307 171V188M331 171V188M354 171V188"
-                      stroke="#b8d4c0"
+                    <rect
+                      x="217"
+                      y="278"
+                      width="206"
+                      height="66"
+                      rx="13"
+                      fill="#18291e"
+                      stroke="#91a782"
                       stroke-width="2"
-                      opacity=".6"
                     />
+                    <path d="M220 280H420L412 293H228Z" fill="url(#artSteel)" />
+                    <rect
+                      x="268"
+                      y="301"
+                      width="102"
+                      height="30"
+                      rx="5"
+                      fill="#0b1a10"
+                      stroke="#4b6846"
+                    />
+                    <text
+                      id="artWeighReadout"
+                      x="319"
+                      y="322"
+                      text-anchor="middle"
+                      fill="#daecba"
+                      font-size="22"
+                      font-family="monospace"
+                    >
+                      0.0 g
+                    </text>
+                    <circle
+                      cx="392"
+                      cy="316"
+                      r="9"
+                      fill="#354e38"
+                      stroke="#9cb38a"
+                    />
+                    <text
+                      x="246"
+                      y="319"
+                      text-anchor="middle"
+                      fill="#abc299"
+                      font-size="8"
+                      font-family="monospace"
+                    >
+                      TARE
+                    </text>
+                    <path
+                      d="M240 232Q245 275 320 280Q395 275 400 232Z"
+                      fill="url(#artSteel)"
+                      stroke="#d1dfc6"
+                      stroke-width="2"
+                    />
+                    <ellipse
+                      cx="320"
+                      cy="232"
+                      rx="80"
+                      ry="14"
+                      fill="#263e2d"
+                      stroke="#d1dfc6"
+                      stroke-width="3"
+                    />
+                    <g id="artWeighBeans" />
+                    <g id="artBeanScoop">
+                      <path
+                        d="M370 106Q398 101 423 113L419 144Q392 155 369 136Z"
+                        fill="url(#artSteel)"
+                        stroke="#d1dfc6"
+                        stroke-width="2"
+                      />
+                      <path
+                        d="M420 116L469 108Q478 110 471 119L422 129Z"
+                        fill="url(#artWood)"
+                        stroke="#b38351"
+                      />
+                      <ellipse
+                        cx="396"
+                        cy="111"
+                        rx="26"
+                        ry="8"
+                        fill="#35271b"
+                      />
+                      <path
+                        d="M378 108L386 114M393 107L400 113M407 109L414 115"
+                        stroke="#9e6c3b"
+                        stroke-width="5"
+                        stroke-linecap="round"
+                      />
+                    </g>
+                    <g id="artWeighDrops" />
+                    <text
+                      x="320"
+                      y="377"
+                      text-anchor="middle"
+                      fill="#a9bf9b"
+                      font-size="12"
+                    >
+                      一杯分の豆を、正確に。
+                    </text>
                   </g>
-                  <g id="artGrinder">
+                  <g id="artMachine" display="none">
+                    <path
+                      d="M151 56Q151 37 171 37H233L245 52V350H151Z"
+                      fill="#263e2f"
+                      stroke="#7a9479"
+                      stroke-width="2"
+                    />
+                    <path
+                      d="M151 61H245M230 63V341"
+                      stroke="#a7b89b"
+                      opacity=".35"
+                    />
+                    <rect
+                      x="228"
+                      y="105"
+                      width="103"
+                      height="24"
+                      rx="7"
+                      fill="url(#artSteel)"
+                      stroke="#cbd8be"
+                    />
+                    <rect
+                      x="309"
+                      y="123"
+                      width="23"
+                      height="14"
+                      rx="3"
+                      fill="url(#artSteel)"
+                    />
+                    <circle
+                      cx="210"
+                      cy="102"
+                      r="19"
+                      fill="#14251b"
+                      stroke="url(#artSteel)"
+                      stroke-width="4"
+                    />
+                    <path
+                      d="M199 109A13 13 0 0 1 221 92"
+                      stroke="#a0b68d"
+                      fill="none"
+                      stroke-dasharray="1 4"
+                    />
+                    <path
+                      id="artPressureNeedle"
+                      d="M210 102L200 109"
+                      stroke="#e2d8a5"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                    <rect
+                      x="197"
+                      y="148"
+                      width="33"
+                      height="16"
+                      rx="3"
+                      fill="#15251a"
+                      stroke="#6f8866"
+                    />
+                    <text
+                      id="artMachineTemp"
+                      x="213"
+                      y="160"
+                      text-anchor="middle"
+                      fill="#d7e9bd"
+                      font-size="9"
+                      font-family="monospace"
+                    >
+                      93°C
+                    </text>
+
+                    <path
+                      d="M180 351V70Q180 49 203 49H281"
+                      fill="none"
+                      stroke="#1a2721"
+                      stroke-width="25"
+                    />
+                    <path
+                      d="M180 351V70Q180 49 203 49H281"
+                      fill="none"
+                      stroke="url(#artSteel)"
+                      stroke-width="15"
+                    />
+                    <path d="M159 354H213L227 368H145Z" fill="url(#artSteel)" />
+                    <path
+                      d="M122 375H472L485 386H109Z"
+                      fill="#263b2e"
+                      stroke="#65816a"
+                    />
+                    <text
+                      x="160"
+                      y="330"
+                      fill="#8ca58e"
+                      font-size="9"
+                      font-family="monospace"
+                      transform="rotate(-90 160 330)"
+                    >
+                      ESPRESSO LAB
+                    </text>
+                    <g id="artHead">
+                      <path
+                        d="M270 126H370L381 146V162H259V146Z"
+                        fill="url(#artSteel)"
+                        stroke="#d9e3cf"
+                      />
+                      <path
+                        d="M272 164H368"
+                        stroke="#5a7064"
+                        stroke-width="4"
+                        stroke-dasharray="2 4"
+                      />
+                      <path
+                        id="artShower"
+                        d="M286 171V188M307 171V188M331 171V188M354 171V188"
+                        stroke="#b8d4c0"
+                        stroke-width="2"
+                        opacity=".6"
+                      />
+                    </g>
+                  </g>
+                  <g id="artGrinder" display="none">
+                    <path
+                      d="M230 101Q230 80 251 80H293V311H230Z"
+                      fill="url(#artSteel)"
+                      stroke="#bacab5"
+                    />
+                    <path d="M242 114H278V294H242Z" fill="#1b2b22" />
+                    <circle
+                      cx="260"
+                      cy="156"
+                      r="9"
+                      fill="#a8bd92"
+                      stroke="#d9e5cd"
+                    />
+                    <path
+                      d="M290 246H340"
+                      stroke="url(#artSteel)"
+                      stroke-width="8"
+                    />
+                    <path d="M218 311H363L374 328H208Z" fill="url(#artSteel)" />
+                    <text
+                      x="259"
+                      y="281"
+                      text-anchor="middle"
+                      fill="#adbf9f"
+                      font-size="9"
+                      font-family="monospace"
+                      transform="rotate(-90 259 281)"
+                    >
+                      SINGLE DOSE
+                    </text>
                     <path
                       d="M282 23H358L349 79H291Z"
                       fill="#adc4b3"
@@ -833,7 +1013,7 @@
                     </g>
                     <path d="M307 134H333L328 148H312Z" fill="url(#artSteel)" />
                   </g>
-                  <g id="artTamper" opacity="0">
+                  <g id="artTamper" display="none">
                     <rect
                       x="315"
                       y="82"
@@ -856,57 +1036,98 @@
                       stroke="#e0e7d5"
                     />
                   </g>
-                  <path
-                    d="M262 179L271 233Q320 248 369 233L378 179Z"
-                    fill="#d1dfca"
-                    fill-opacity=".06"
-                    stroke="#abbda4"
-                    stroke-width="2"
-                  />
-                  <path id="artBed" d="M271 237H369Z" fill="url(#artPowder)" />
-                  <path
-                    id="artWetBed"
-                    d="M271 237H369Z"
-                    fill="#261a12"
-                    clip-path="url(#artWetClip)"
-                  />
-                  <g id="artGrounds" />
-                  <path
-                    d="M271 238Q320 252 369 238"
-                    fill="none"
-                    stroke="url(#artSteel)"
-                    stroke-width="5"
-                  />
-                  <g id="artFilterHoles" />
-                  <path
-                    d="M264 181L270 234M376 181L370 234"
-                    stroke="#dae5d2"
-                    stroke-width="4"
-                  />
-                  <ellipse
-                    cx="320"
-                    cy="178"
-                    rx="60"
-                    ry="7"
-                    fill="none"
-                    stroke="url(#artSteel)"
-                    stroke-width="7"
-                  />
-                  <path
-                    d="M379 184L407 186"
-                    stroke="url(#artSteel)"
-                    stroke-width="14"
-                  />
-                  <path
-                    d="M405 177L491 182Q501 190 491 198L405 196Z"
-                    fill="url(#artWood)"
-                    stroke="#c28a55"
-                  />
-                  <path
-                    d="M416 183L482 187M416 188L470 192"
-                    stroke="#e4af71"
-                    opacity=".3"
-                  />
+                  <g id="artPrepMat" display="none">
+                    <path
+                      d="M232 302H501L517 319H218Z"
+                      fill="#344d3b"
+                      stroke="#6c8667"
+                    />
+                    <path d="M218 319H517V330H218Z" fill="#18281e" />
+                    <path
+                      d="M239 309H489M233 314H499"
+                      stroke="#526a4d"
+                      stroke-width="1"
+                      opacity=".6"
+                    />
+                  </g>
+                  <g id="artBasket" display="none">
+                    <path
+                      d="M262 179L271 233Q320 248 369 233L378 179Z"
+                      fill="#d1dfca"
+                      fill-opacity=".06"
+                      stroke="#abbda4"
+                      stroke-width="2"
+                    />
+                    <path
+                      id="artBed"
+                      d="M271 237H369Z"
+                      fill="url(#artPowder)"
+                    />
+                    <path
+                      id="artWetBed"
+                      d="M271 237H369Z"
+                      fill="#261a12"
+                      clip-path="url(#artWetClip)"
+                    />
+                    <g id="artGrounds" />
+                    <path
+                      d="M271 238Q320 252 369 238"
+                      fill="none"
+                      stroke="url(#artSteel)"
+                      stroke-width="5"
+                    />
+                    <g id="artFilterHoles" />
+                    <path
+                      d="M264 181L270 234M376 181L370 234"
+                      stroke="#dae5d2"
+                      stroke-width="4"
+                    />
+                    <ellipse
+                      cx="320"
+                      cy="178"
+                      rx="60"
+                      ry="7"
+                      fill="none"
+                      stroke="url(#artSteel)"
+                      stroke-width="7"
+                    />
+                    <path
+                      d="M379 184L407 186"
+                      stroke="url(#artSteel)"
+                      stroke-width="14"
+                    />
+                    <path
+                      d="M405 177L491 182Q501 190 491 198L405 196Z"
+                      fill="url(#artWood)"
+                      stroke="#c28a55"
+                    />
+                    <path
+                      d="M416 183L482 187M416 188L470 192"
+                      stroke="#e4af71"
+                      opacity=".3"
+                    />
+                  </g>
+                  <g id="artWdt" display="none">
+                    <path
+                      d="M304 146L301 243M312 146L312 246M320 146L323 243M328 146L334 246"
+                      stroke="#d5e2ce"
+                      stroke-width="1.6"
+                    />
+                    <rect
+                      x="298"
+                      y="108"
+                      width="36"
+                      height="45"
+                      rx="10"
+                      fill="url(#artWood)"
+                      stroke="#c4905a"
+                    />
+                    <path
+                      d="M306 115V143M312 114V143"
+                      stroke="#e8ba7f"
+                      opacity=".25"
+                    />
+                  </g>
                   <g
                     id="artStreams"
                     opacity="0"
@@ -923,85 +1144,125 @@
                     <ellipse />
                     <ellipse />
                   </g>
-                  <ellipse
-                    cx="320"
-                    cy="380"
-                    rx="90"
-                    ry="7"
-                    fill="#0d1a12"
-                    opacity=".5"
-                  />
-                  <path
-                    d="M384 321Q418 309 417 341Q414 364 388 353"
-                    fill="none"
-                    stroke="url(#artSteel)"
-                    stroke-width="10"
-                  />
-                  <path
-                    d="M253 306Q258 374 320 377Q382 374 387 306"
-                    fill="#dae6ce"
-                    fill-opacity=".08"
-                    stroke="#dae5cf"
-                    stroke-width="3"
-                  />
-                  <g clip-path="url(#artCupClip)">
+                  <g id="artShotScale" display="none">
                     <rect
-                      id="artCupLiquid"
-                      x="254"
-                      y="373"
-                      width="132"
-                      height="74"
-                      fill="url(#artCoffee)"
-                    />
-                    <ellipse
-                      id="artCrema"
-                      cx="320"
-                      cy="373"
-                      rx="61"
-                      ry="6"
-                      fill="#c99651"
-                      opacity="0"
+                      x="251"
+                      y="366"
+                      width="143"
+                      height="26"
+                      rx="5"
+                      fill="#1c2b22"
+                      stroke="#8ba582"
                     />
                     <path
-                      id="artCremaSwirl"
-                      d="M286 365Q314 355 346 365Q327 370 307 365"
-                      fill="none"
-                      stroke="#6a3c1c"
-                      opacity="0"
-                      stroke-width="2"
+                      d="M249 366H396"
+                      stroke="url(#artSteel)"
+                      stroke-width="4"
                     />
+                    <text
+                      x="266"
+                      y="383"
+                      fill="#a4ba97"
+                      font-size="7"
+                      font-family="monospace"
+                    >
+                      TARE
+                    </text>
+                    <text
+                      id="artShotWeight"
+                      x="342"
+                      y="385"
+                      text-anchor="middle"
+                      fill="#d7ebba"
+                      font-size="13"
+                      font-family="monospace"
+                    >
+                      0.0 g
+                    </text>
                   </g>
-                  <ellipse
-                    cx="320"
-                    cy="306"
-                    rx="67"
-                    ry="10"
-                    fill="none"
-                    stroke="#e4e9d2"
-                    stroke-width="3"
-                  />
-                  <path
-                    d="M262 318Q266 349 275 357"
-                    fill="none"
-                    stroke="#f0f1db"
-                    stroke-width="4"
-                    opacity=".4"
-                  />
-                  <g
-                    id="artSteam"
-                    fill="none"
-                    stroke="#c8d6bd"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    opacity="0"
-                  >
-                    <path />
-                    <path />
-                    <path />
+                  <g id="artCup" display="none" transform="translate(0 -14)">
+                    <ellipse
+                      cx="320"
+                      cy="380"
+                      rx="90"
+                      ry="7"
+                      fill="#0d1a12"
+                      opacity=".5"
+                    />
+                    <path
+                      d="M384 321Q418 309 417 341Q414 364 388 353"
+                      fill="none"
+                      stroke="url(#artSteel)"
+                      stroke-width="10"
+                    />
+                    <path
+                      d="M253 306Q258 374 320 377Q382 374 387 306"
+                      fill="#dae6ce"
+                      fill-opacity=".08"
+                      stroke="#dae5cf"
+                      stroke-width="3"
+                    />
+                    <g clip-path="url(#artCupClip)">
+                      <rect
+                        id="artCupLiquid"
+                        x="254"
+                        y="373"
+                        width="132"
+                        height="74"
+                        fill="url(#artCoffee)"
+                      />
+                      <ellipse
+                        id="artCrema"
+                        cx="320"
+                        cy="373"
+                        rx="61"
+                        ry="6"
+                        fill="#c99651"
+                        opacity="0"
+                      />
+                      <path
+                        id="artCremaSwirl"
+                        d="M286 365Q314 355 346 365Q327 370 307 365"
+                        fill="none"
+                        stroke="#6a3c1c"
+                        opacity="0"
+                        stroke-width="2"
+                      />
+                    </g>
+                    <ellipse
+                      cx="320"
+                      cy="306"
+                      rx="67"
+                      ry="10"
+                      fill="none"
+                      stroke="#e4e9d2"
+                      stroke-width="3"
+                    />
+                    <path
+                      d="M262 318Q266 349 275 357"
+                      fill="none"
+                      stroke="#f0f1db"
+                      stroke-width="4"
+                      opacity=".4"
+                    />
+                    <g
+                      id="artSteam"
+                      fill="none"
+                      stroke="#c8d6bd"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      opacity="0"
+                    >
+                      <path />
+                      <path />
+                      <path />
+                    </g>
                   </g>
                 </g>
               </svg>
-              <span class="illustration-mode">抽出アニメーション</span>
+              <span class="illustration-mode" id="illustrationStep"
+                >01 / 06 · 豆の計量</span
+              >
             </div>
             <span class="camera-hint" id="cameraHint" hidden
               >1本指で回転 · 2本指でズーム</span
@@ -1009,11 +1270,21 @@
           </div>
           <div class="stage-caption">
             <span class="tiny-dot"></span
-            ><span id="livePhaseLabel">豆を挽いています</span
+            ><span id="livePhaseLabel">豆を量っています</span
             ><span id="simTimerDisplay">0.0 s</span>
           </div>
+          <p class="next-stage">
+            <span>この次 →</span><strong id="nextPhaseLabel">豆を挽く</strong>
+          </p>
         </div>
-        <div class="live-metrics">
+        <div class="preparation-reading" id="preparationReading">
+          <div>
+            <span id="prepMetricLabel">一杯分の豆</span
+            ><strong id="prepMetricValue">18.0 <small>g</small></strong>
+          </div>
+          <p id="prepMetricHint">容器の重さをゼロにしてから計量します。</p>
+        </div>
+        <div class="live-metrics" id="extractionReadings" hidden>
           <div class="live-main">
             <span>カップに入った量</span
             ><strong id="liveYield">0.0 <small>g</small></strong
@@ -1043,12 +1314,56 @@
         <div class="learning-card">
           <span aria-hidden="true">i</span>
           <div>
-            <strong id="learningTitle">最初は、準備の時間。</strong>
+            <strong id="learningTitle">まずは、一杯分の豆から。</strong>
             <p id="learningText">
-              豆を挽いて粉を詰めたら抽出へ。目標量に達すると自動で終了し、一杯のレポートが開きます。
+              計量、粉砕、粉をほぐす、タンピング、セットを経て抽出へ。目標量で終了すると、一杯のレポートが開きます。
             </p>
           </div>
         </div>
+        <details class="report-details view-settings" id="viewSettings">
+          <summary>表示を変える<span>抽出時の3D・画質</span></summary>
+          <div class="render-toolbar" role="group" aria-label="3D表示の設定">
+            <span class="render-note" id="renderNote"
+              >3Dは抽出の場面で表示します</span
+            >
+            <button id="btnToggle3D" class="render-button" aria-pressed="true">
+              3Dをオフ
+            </button>
+            <button id="btnCutaway" class="render-button" aria-pressed="true">
+              断面表示
+            </button>
+            <div class="camera-buttons" role="group" aria-label="カメラの視点">
+              <button
+                class="render-button"
+                data-camera="wide"
+                aria-pressed="true"
+              >
+                全体
+              </button>
+              <button
+                class="render-button"
+                data-camera="section"
+                aria-pressed="false"
+              >
+                パック
+              </button>
+              <button
+                class="render-button"
+                data-camera="stream"
+                aria-pressed="false"
+              >
+                液流
+              </button>
+            </div>
+            <label class="quality-label" for="renderQuality"
+              >画質<select id="renderQuality">
+                <option value="low">省電力</option>
+                <option value="balanced" selected>標準</option>
+                <option value="cinematic">シネマ（外観）</option>
+              </select></label
+            >
+          </div>
+        </details>
         <div class="brew-actions">
           <button id="btnUseSimple" class="text-button" hidden>
             軽量モードで続ける
@@ -1168,7 +1483,8 @@
             </table>
           </div>
           <p class="small-note">
-            ※ 収率 = 濃度 × 抽出量 ÷ 粉量。準備の7.5秒は抽出時間に含みません。
+            ※ 収率 = 濃度 × 抽出量 ÷
+            粉量。計量からセットまでの準備は抽出時間に含みません。
           </p>
         </section>
         <details class="report-details" id="analyticsDetails">
@@ -1336,11 +1652,12 @@
       <div id="savedRecipeList" class="saved-recipe-list"></div>
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="js/brew-model.js?v=4.2.2"></script>
-    <script src="js/app.js?v=4.2.2"></script>
-    <script src="js/runtime-policy.js?v=4.2.2"></script>
-    <script src="js/gpu-journey.js?v=4.2.2"></script>
-    <script src="js/brew-illustration.js?v=4.2.2"></script>
-    <script src="js/journey.js?v=4.2.2"></script>
+    <script src="js/brew-model.js?v=4.3.0"></script>
+    <script src="js/app.js?v=4.3.0"></script>
+    <script src="js/runtime-policy.js?v=4.3.0"></script>
+    <script src="js/brew-workflow.js?v=4.3.0"></script>
+    <script src="js/gpu-journey.js?v=4.3.0"></script>
+    <script src="js/brew-illustration.js?v=4.3.0"></script>
+    <script src="js/journey.js?v=4.3.0"></script>
   </body>
 </html>

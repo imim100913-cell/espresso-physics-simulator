@@ -62,7 +62,7 @@ test("natural completion stops at the target output, without pressing skip", asy
   await setup(page);
   await page.clock.install();
   await page.getByRole("button", { name: "このレシピで抽出する" }).click();
-  await page.clock.runFor(31500);
+  await page.clock.runFor(40000);
   await expect(page.locator("#resultScreen")).toBeVisible();
   await expect(page.locator("#resultYield")).toHaveText("36.0 g");
 });

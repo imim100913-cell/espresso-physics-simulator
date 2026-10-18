@@ -3,6 +3,8 @@
   "use strict";
   const M = window.BrewModel;
   const R = window.BrewRuntime;
+  const W = window.BrewWorkflow;
+  const PREPARATION = W.preparationSeconds;
   const mobile = R.isMobile();
   const $ = (id) => document.getElementById(id);
   const text = (id, value) => {
@@ -410,6 +412,17 @@
       .forEach((b) => (b.disabled = state.visualDisabled));
   }
   syncVisualControls();
+  function syncScenePresentation() {
+    const extracting =
+      state.step === "brew" && W.at(state.elapsed).id === "extract";
+    const scene = state.scene;
+    const ready =
+      extracting && scene?.hasRenderedFrame && !state.visualDisabled;
+    $("visualFallback").hidden = !!ready;
+    $("cameraHint").hidden = !ready;
+    $("renderNote").hidden = extracting;
+    if (scene) scene.renderer.domElement.hidden = !extracting;
+  }
   function disableScene() {
     state.visualDisabled = true;
     state.scene?.dispose();
@@ -427,14 +440,27 @@
     }
   });
   async function ensureScene() {
-    if (state.scene || state.sceneLoading || state.visualDisabled) return;
+    // Preparation uses the same focused scenes on every device. Load 3D at the machine.
+    if (
+      state.scene ||
+      state.sceneLoading ||
+      state.visualDisabled ||
+      W.at(state.elapsed).id !== "extract"
+    )
+      return;
     state.sceneLoading = true;
     try {
-      const { EspressoScene } = await import("./renderer.bundle.js?v=4.2.2");
-      if (state.visualDisabled || state.step !== "brew") return;
+      const { EspressoScene } = await import("./renderer.bundle.js?v=4.3.0");
+      if (
+        state.visualDisabled ||
+        state.step !== "brew" ||
+        W.at(state.elapsed).id !== "extract"
+      )
+        return;
       state.scene = new EspressoScene("viewport3DContainer", {
         quality: $("renderQuality").value,
         mobile,
+        extractionOnly: true,
       });
       state.scene.onError = () => {
         disableScene();
@@ -448,12 +474,11 @@
       const scene = state.scene;
       scene.onFirstFrame = () => {
         if (state.scene !== scene || state.visualDisabled) return;
-        $("visualFallback").hidden = true;
-        $("cameraHint").hidden = false;
+        syncScenePresentation();
       };
       state.scene.renderer.domElement.setAttribute(
         "aria-label",
-        "豆の粉砕・タンピング・抽出の3Dアニメーション",
+        "マシンからエスプレッソを抽出する3Dアニメーション",
       );
       state.scene.renderer.domElement.setAttribute("role", "img");
       state.scene.renderer.domElement.addEventListener(
@@ -470,12 +495,13 @@
           ...state.shot.params,
           rpm: state.shot.params.grinderRPM,
         });
-        state.scene.start(state.shot.duration + 7.5);
-        state.scene.currentTime = state.elapsed;
+        state.scene.start(W.sceneTime(state.shot.duration + PREPARATION));
+        state.scene.currentTime = W.sceneTime(state.elapsed);
         state.scene.config.sample =
           state.gpuSample ??
-          M.sampleAt(state.shot, Math.max(0, state.elapsed - 7.5));
+          M.sampleAt(state.shot, Math.max(0, state.elapsed - PREPARATION));
         state.scene.step3DPhysics(0);
+        syncScenePresentation();
         state.gpu?.attachScene(state.scene);
       }
     } catch {
@@ -524,7 +550,7 @@
     state.elapsed = 0;
     state.paused = false;
     state.scene?.updateConfig({ ...params, rpm: params.grinderRPM });
-    state.scene?.start(state.shot.duration + 7.5);
+    state.scene?.start(W.sceneTime(state.shot.duration + PREPARATION));
     $("gpuDiagnostics").hidden = true;
     renderPlayback();
     updateDock();
@@ -574,7 +600,7 @@
         ...state.shot.params,
         rpm: state.shot.params.grinderRPM,
       });
-      state.scene.start(state.shot.duration + 7.5);
+      state.scene.start(W.sceneTime(state.shot.duration + PREPARATION));
     }
     // Rendering is optional; it must not gate the shot clock or GPU startup.
     ensureScene();
@@ -688,10 +714,13 @@
     state.tickAt = now;
     if (state.step !== "brew" || state.finished) return;
     if (!state.paused && !document.hidden) {
-      state.elapsed = Math.min(state.elapsed + dt, state.shot.duration + 7.5);
+      state.elapsed = Math.min(
+        state.elapsed + dt,
+        state.shot.duration + PREPARATION,
+      );
       renderPlayback(dt);
     }
-    if (state.elapsed >= state.shot.duration + 7.5) {
+    if (state.elapsed >= state.shot.duration + PREPARATION) {
       finishBrew();
       return;
     }
@@ -700,58 +729,88 @@
   function renderPlayback(dt = 0) {
     const elapsed = state.elapsed,
       shot = state.shot,
-      extractT = Math.max(0, elapsed - 7.5),
+      extractT = Math.max(0, elapsed - PREPARATION),
       sample = state.gpuSample ?? M.sampleAt(shot, extractT);
     illustration.update({ elapsed, sample, params: shot.params });
-    const stage = elapsed < 4.5 ? 0 : elapsed < 7.5 ? 1 : 2;
-    const phase = ["豆を挽く", "粉を詰める", "お湯を通す"][stage];
-    const tips = [
-      [
-        "最初は、準備の時間。",
-        "豆を挽いて粉を詰めたら抽出へ。目標量に達すると自動で終了し、一杯のレポートが開きます。",
+    const stage = W.at(elapsed),
+      extracting = stage.id === "extract";
+    text("phasePill", state.paused ? "一時停止中" : stage.label);
+    text("livePhaseLabel", state.paused ? "一時停止中" : stage.label);
+    text("brewDescription", stage.title);
+    text("learningTitle", stage.title);
+    text("learningText", stage.description);
+    text(
+      "illustrationStep",
+      `${String(stage.index + 1).padStart(2, "0")} / 06 · ${stage.label}`,
+    );
+    text("nextPhaseLabel", stage.next);
+    $("preparationReading").hidden = extracting;
+    $("extractionReadings").hidden = !extracting;
+    const p = shot.params;
+    const preparationReadings = {
+      weigh: [
+        "今回量る豆",
+        `${fmt(p.dose)} g`,
+        "容器の重さをゼロにしてから計量します。",
       ],
-      [
-        "均一な粉のベッドをつくる。",
-        "粉を水平に詰める工程をタンピングといいます。お湯が偏らず、全体を通るための準備です。",
+      grind: [
+        "設定した挽き目",
+        `${p.grindSize} μm`,
+        `豆 ${fmt(p.dose)} g · グラインダー ${p.grinderRPM} rpm`,
       ],
-      [
-        "少しずつ、味がカップに。",
-        "最初は濃い成分が出て、後半ほどカップ全体の濃度が薄くなる傾向をモデルで表しています。終了後に数値を振り返りましょう。",
+      distribute: [
+        "バスケットの粉",
+        `${fmt(p.dose)} g`,
+        "細い針で塊をほぐし、均等に広げます。",
       ],
-    ];
-    text("phasePill", state.paused ? "一時停止中" : phase);
-    text("livePhaseLabel", state.paused ? "一時停止中" : phase + "しています");
-    text("brewDescription", tips[stage][1]);
-    text("learningTitle", tips[stage][0]);
-    text("learningText", tips[stage][1]);
+      tamp: [
+        "タンピング荷重",
+        `${p.tampForce} kg`,
+        "タンパーを水平に保ち、均一に押し固めます。",
+      ],
+      setup: [
+        "カップのスケール",
+        "0.0 g",
+        `カップを置いてゼロに。抽出の目標は ${fmt(p.targetYield)} g。`,
+      ],
+    }[stage.id];
+    if (preparationReadings)
+      ["prepMetricLabel", "prepMetricValue", "prepMetricHint"].forEach(
+        (id, i) => text(id, preparationReadings[i]),
+      );
     text(
       "remainingTime",
       state.paused
         ? "再開を待っています"
-        : `あと約 ${Math.ceil(shot.duration + 7.5 - elapsed)} 秒`,
+        : `あと約 ${Math.ceil(shot.duration + PREPARATION - elapsed)} 秒`,
     );
     text("simTimerDisplay", fmt(elapsed) + " s");
     text("liveShotTime", fmt(extractT) + " s");
     text("liveYield", fmt(sample.yield) + " g");
-    text("livePressure", fmt(stage === 2 ? sample.p : 0) + " bar");
-    text("liveFlowRate", fmt(stage === 2 ? sample.q : 0, 2) + " g/s");
+    text("livePressure", fmt(extracting ? sample.p : 0) + " bar");
+    text("liveFlowRate", fmt(extracting ? sample.q : 0, 2) + " g/s");
     const progress = state.gpu
       ? Math.min(
           99,
-          Math.min(15, (elapsed / 7.5) * 15) +
+          Math.min(15, (elapsed / PREPARATION) * 15) +
             (sample.yield / shot.params.targetYield) * 84,
         )
-      : (elapsed / (shot.duration + 7.5)) * 100;
+      : (elapsed / (shot.duration + PREPARATION)) * 100;
     $("brewProgressFill").style.width = progress + "%";
     document
       .querySelector(".brew-progress")
       .setAttribute("aria-valuenow", String(Math.round(progress)));
-    ["Grind", "Tamp", "Extract", "Done"].forEach((id, i) => {
-      $("phase" + id).classList.toggle("active", stage === i);
-      $("phase" + id).classList.toggle("done", i < stage);
+    [...W.stages.map((s) => s.id), "done"].forEach((id, i) => {
+      const node = $("phase" + id[0].toUpperCase() + id.slice(1));
+      node.classList.toggle("active", stage.index === i);
+      node.classList.toggle("done", i < stage.index);
+      if (stage.index === i) node.setAttribute("aria-current", "step");
+      else node.removeAttribute("aria-current");
     });
+    syncScenePresentation();
+    if (extracting) ensureScene();
     if (state.scene && dt > 0 && !state.paused) {
-      state.scene.currentTime = elapsed;
+      state.scene.currentTime = W.sceneTime(elapsed);
       state.scene.config.sample = sample;
       state.scene.step3DPhysics(dt);
     }
@@ -760,7 +819,7 @@
     if (state.finished) return;
     cancelAnimationFrame(state.raf);
     state.finished = true;
-    state.elapsed = state.shot.duration + 7.5;
+    state.elapsed = state.shot.duration + PREPARATION;
     state.scene?.stop();
     renderReport();
     state.lastShot = state.shot;
