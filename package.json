@@ -1,12 +1,13 @@
 {
   "name": "espresso-physics-simulator",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "private": true,
   "scripts": {
     "start": "node scripts/serve.cjs",
     "test": "node --test tests/model.test.cjs",
     "test:e2e": "playwright test",
-    "build": "node scripts/build-renderer.mjs"
+    "build": "node scripts/build-renderer.mjs",
+    "test:gpu": "playwright test tests/coupled-gpu.spec.cjs --workers=1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

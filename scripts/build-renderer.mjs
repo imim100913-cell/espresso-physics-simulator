@@ -6,6 +6,7 @@ await build({
   target: "es2022",
   outfile: "js/renderer.bundle.js",
   minify: true,
+  loader: { ".wgsl": "text" },
   legalComments: "eof",
   metafile: true,
 }).then(async (result) => {

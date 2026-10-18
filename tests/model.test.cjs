@@ -141,3 +141,31 @@ test("invalid custom curves recover to an editable default", () => {
     assert.ok(M.simulate(p).complete);
   }
 });
+
+test("GPU reports use measured cup mass and solute, and reject invalid traces", () => {
+  const samples = [
+    { t: 0, p: 0, q: 0, yield: 0, solute: 0 },
+    { t: 20, p: 9, q: 1.8, yield: 36, solute: 3.6 },
+  ];
+  const shot = M.fromMeasurements(M.defaults, samples, {
+    risk: 12,
+    diagnostics: { particleCount: 100000 },
+  });
+  assert.equal(shot.source, "gpu");
+  assert.equal(shot.output, 36);
+  assert.equal(shot.tds, 10);
+  assert.equal(shot.ey, 20);
+  assert.equal(shot.complete, true);
+  assert.equal(shot.diagnostics.particleCount, 100000);
+  assert.throws(() =>
+    M.fromMeasurements(M.defaults, [samples[0], { ...samples[1], solute: 37 }]),
+  );
+  assert.throws(() =>
+    M.fromMeasurements(M.defaults, [samples[0], { ...samples[1], t: 0 }]),
+  );
+  assert.throws(() =>
+    M.fromMeasurements(M.defaults, [samples[0], { ...samples[1], yield: NaN }]),
+  );
+  samples[1].yield = 10;
+  assert.equal(shot.output, 36);
+});

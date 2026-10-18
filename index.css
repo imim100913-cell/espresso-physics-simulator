@@ -2091,3 +2091,23 @@ dialog::backdrop {
     padding-inline: 3px;
   }
 }
+.physics-settings label {
+  display: block;
+  margin: 14px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.physics-settings select {
+  width: 100%;
+  min-height: 44px;
+}
+#backendStatus {
+  padding: 0 4px;
+  overflow-wrap: anywhere;
+}
+#gpuDiagnostics {
+  margin: 16px 0;
+}
+#gpuDiagnostics .small-note {
+  padding-top: 0;
+}

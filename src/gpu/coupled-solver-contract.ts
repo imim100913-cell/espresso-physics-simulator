@@ -1,84 +1,75 @@
-/** Architecture contract, NOT a production MLS-MPM/XPBD implementation.
- * All compute stages must pass a conservation test before this can power reports. */
-export type Vec3 = readonly [number, number, number];
-export interface SolverConfig {
-  particleCount: number;
-  grid: Vec3;
-  dxMeters: number;
-  bulkDensityKgM3: number;
-  shearModulusPa: number;
-  lameLambdaPa: number;
-  frictionAngleRadians: number;
-  waterViscosityPaS: number;
-  maxMechanicalSubsteps: number;
-}
-export interface FrameBudget {
-  seconds: number;
-  availableGpuMilliseconds: number;
+/** Public interface for the implemented GPU solver. SI units unless labelled. */
+export interface SolverOptions {
+  particleCount?: number; // 128..500000
+  fluidCount?: number; // 32..8192
+  gridDimension?: 16 | 32 | 48;
+  preparationSeconds?: number;
+  hydraulicDt?: number;
+  fluidDt?: number;
+  recipe?: {
+    dose?: number;
+    grindSize?: number;
+    waterTemp?: number;
+    maxPressure?: number;
+    targetYield?: number;
+    tampForce?: number;
+  };
+  adapter?: GPUAdapter;
+  device?: GPUDevice;
+  onLost?: (message: string) => void;
 }
 export interface Diagnostics {
+  particleCount: number;
+  fluidCapacity: number;
+  mechanicsSeconds: number;
+  preparationProgress: number;
+  hydraulicSeconds: number;
+  liquidSeconds: number;
   dryMassKg: number;
-  waterInKg: number;
-  waterOutKg: number;
-  waterStoredKg: number;
-  dissolvedSolidsKg: number;
+  meanHeightMeters: number;
+  plasticStrain: number;
   maxVelocityMS: number;
   minDetF: number;
   nanCount: number;
-  residualL2: number;
-  simulatedSeconds: number;
+  meanPorosity: number;
+  channelRiskPercent: number;
+  waterInKg: number;
+  outletSolutionKg: number;
+  outletSoluteKg: number;
+  dissolvedKg: number;
+  storedWaterKg: number;
+  storedSoluteKg: number;
+  remainingSolubleKg: number;
+  cupMassKg: number;
+  cupSoluteKg: number;
+  fallingMassKg: number;
+  reservoirMassKg: number;
+  waterErrorKg: number;
+  coffeeErrorKg: number;
+  liquidErrorKg: number;
+  validationErrors: string[];
+  complete: boolean;
+  gpuBatchWallMilliseconds?: number;
 }
 export interface CoupledSolver {
-  // GPU-resident render buffers: do not copy 500k particle positions through JS.
+  readonly device: GPUDevice;
+  readonly particleCount: number;
+  readonly latest: Diagnostics;
   getRenderBuffers(): {
     positions: GPUBuffer;
     saturation: GPUBuffer;
     solute: GPUBuffer;
+    drops: GPUBuffer;
   };
-  advance(
-    config: FrameBudget,
-  ): Promise<{ consumedSimulatedSeconds: number; diagnostics?: Diagnostics }>;
-  setMachineBoundary(input: {
-    pressurePa: number;
-    temperatureK: number;
-    tampDisplacementMeters: number;
-    wdtPose?: Float32Array;
-  }): void;
+  advance(options?: {
+    mechanicalSubsteps?: number;
+    hydraulicSteps?: number;
+    pressure?: number;
+  }): Promise<Diagnostics>;
+  drain(options?: { steps?: number }): Promise<Diagnostics>;
+  setMachineBoundary(boundary: { pressurePa?: number }): void;
+  readParticles(limit?: number): Promise<Float32Array>;
+  readCells(): Promise<Float32Array>;
   dispose(): void;
 }
-export const computeStages = [
-  "resetGrid",
-  "hashParticles",
-  "prefixScan",
-  "sortParticleIndices",
-  "updateDeformationGradient",
-  "svdAndDruckerPragerReturnMap",
-  "gatherParticleMassAndMomentum",
-  "gridForcesAndSolidContact",
-  "richardsPressureSolve",
-  "conservativeWaterAndSoluteFlux",
-  "twoWayDragMomentumExchange",
-  "g2pApic",
-  "liquidHash",
-  "xpbdDensityAndContactIterations",
-  "viscosityAndSurfaceTension",
-  "reduceConservationDiagnostics",
-] as const;
-export function mechanicalTimeStep(
-  c: SolverConfig,
-  maxVelocityMS: number,
-): number {
-  const waveSpeed = Math.sqrt(
-    (c.lameLambdaPa + 2 * c.shearModulusPa) / c.bulkDensityKgM3,
-  );
-  return (0.3 * c.dxMeters) / (waveSpeed + Math.max(0, maxVelocityMS));
-}
-// Deliberately rejects unsupported requests instead of substituting cosmetic motion.
-export function createCoupledSolver(
-  _device: GPUDevice,
-  _config: SolverConfig,
-): never {
-  throw new Error(
-    "MLS-MPM/XPBD constitutive, pressure, and coupling passes are a planned implementation; use the isolated wetting reference for current GPU experiments.",
-  );
-}
+export { createCoupledSolver } from "./coupled-solver.js";

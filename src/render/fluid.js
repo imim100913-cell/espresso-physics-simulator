@@ -59,6 +59,7 @@ export class LiquidSurface {
     );
     this.drops.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.drops.frustumCulled = false;
+    this.drops.visible = false;
     this.group.add(this.drops);
     this.dummy = new THREE.Object3D();
     const foam = cremaMaterial();
