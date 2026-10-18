@@ -1,5 +1,6 @@
 /** Public interface for the implemented GPU solver. SI units unless labelled. */
 export interface SolverOptions {
+  signal?: AbortSignal;
   particleCount?: number; // 128..500000
   fluidCount?: number; // 32..8192
   gridDimension?: 16 | 32 | 48;

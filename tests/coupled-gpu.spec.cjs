@@ -315,6 +315,9 @@ test("mobile GPU journey pauses, finishes an actual partial result, and returns 
   await gpu(page);
   // Reduced motion keeps this integration test focused on the physical controller.
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.locator(".physics-settings summary").click();
+  await page.selectOption("#physicsBackend", "gpu");
+  await page.locator(".physics-settings summary").click();
   await page.getByRole("button", { name: "このレシピで抽出する" }).click();
   await expect(page.locator("#gpuDiagnostics")).toBeVisible({ timeout: 30000 });
   await expect(page.locator("#gpuParticleLabel")).toHaveText("32,768 粒子");
