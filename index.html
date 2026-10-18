@@ -12,7 +12,7 @@
       content="レシピを選び、抽出を見守り、一杯を振り返る。スマホで学ぶエスプレッソシミュレーター。"
     />
     <title>Espresso Lab — あなたの一杯を見つけよう</title>
-    <link rel="stylesheet" href="index.css" />
+    <link rel="stylesheet" href="index.css?v=4.1.0" />
   </head>
   <body class="mode-basic" data-step="setup">
     <a class="skip-link" href="#mainContent">メインコンテンツへ</a>
@@ -631,6 +631,41 @@
           <li id="phaseExtract">お湯を通す</li>
           <li id="phaseDone">できあがり</li>
         </ol>
+        <div class="render-toolbar" role="group" aria-label="3D表示の設定">
+          <button id="btnCutaway" class="render-button" aria-pressed="true">
+            断面表示
+          </button>
+          <div class="camera-buttons" role="group" aria-label="カメラの視点">
+            <button
+              class="render-button"
+              data-camera="wide"
+              aria-pressed="true"
+            >
+              全体
+            </button>
+            <button
+              class="render-button"
+              data-camera="section"
+              aria-pressed="false"
+            >
+              パック
+            </button>
+            <button
+              class="render-button"
+              data-camera="stream"
+              aria-pressed="false"
+            >
+              液流
+            </button>
+          </div>
+          <label class="quality-label" for="renderQuality"
+            >画質<select id="renderQuality">
+              <option value="low">省電力</option>
+              <option value="balanced" selected>標準</option>
+              <option value="cinematic">シネマ（外観）</option>
+            </select></label
+          >
+        </div>
         <div class="stage-card">
           <div class="viewport" id="viewport3DContainer">
             <div id="visualFallback" class="visual-fallback">
@@ -961,7 +996,7 @@
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script src="js/brew-model.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/journey.js"></script>
+    <script src="js/app.js?v=4.1.0"></script>
+    <script src="js/journey.js?v=4.1.0"></script>
   </body>
 </html>

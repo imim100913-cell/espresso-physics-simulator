@@ -356,26 +356,6 @@
     }),
   );
 
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = src;
-      script.async = true;
-      const timer = setTimeout(
-        () => reject(new Error("3D loading timed out")),
-        8000,
-      );
-      script.onload = () => {
-        clearTimeout(timer);
-        resolve();
-      };
-      script.onerror = () => {
-        clearTimeout(timer);
-        reject(new Error("3D unavailable"));
-      };
-      document.head.append(script);
-    });
-  }
   async function ensureScene() {
     if (
       state.scene ||
@@ -385,16 +365,12 @@
       return;
     state.sceneLoading = true;
     try {
-      if (!window.THREE)
-        await loadScript(
-          "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
-        );
-      if (!window.THREE.OrbitControls)
-        await loadScript(
-          "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js",
-        );
-      state.scene = new window.EspressoVisuals.PhysicsScene(
-        "viewport3DContainer",
+      const { EspressoScene } = await import("./renderer.bundle.js?v=4.1.0");
+      state.scene = new EspressoScene("viewport3DContainer");
+      state.scene.setQuality($("renderQuality").value);
+      $("renderQuality").value = state.scene.quality;
+      state.scene.setCutaway(
+        $("btnCutaway").getAttribute("aria-pressed") === "true",
       );
       $("visualFallback").hidden = true;
       $("cameraHint").hidden = false;
@@ -407,6 +383,7 @@
         "webglcontextlost",
         (e) => {
           e.preventDefault();
+          state.scene?.dispose();
           state.scene = null;
           $("visualFallback").hidden = false;
           $("cameraHint").hidden = true;
@@ -420,6 +397,8 @@
         state.scene.start(state.shot.duration + 7.5);
       }
     } catch {
+      state.scene?.dispose();
+      state.scene = null;
       $("visualFallback").hidden = false;
       $("cameraHint").hidden = true;
       $("viewport3DContainer").querySelector("canvas")?.remove();
@@ -427,6 +406,26 @@
       state.sceneLoading = false;
     }
   }
+  $("btnCutaway").addEventListener("click", () => {
+    const enabled = $("btnCutaway").getAttribute("aria-pressed") !== "true";
+    $("btnCutaway").setAttribute("aria-pressed", String(enabled));
+    state.scene?.setCutaway(enabled);
+  });
+  $("renderQuality").addEventListener("change", (e) => {
+    state.scene?.setQuality(e.target.value);
+    if (state.scene && state.scene.quality !== e.target.value) {
+      e.target.value = state.scene.quality;
+      notify("この端末で使える標準画質に切り替えました");
+    }
+  });
+  document.querySelectorAll("[data-camera]").forEach((button) =>
+    button.addEventListener("click", () => {
+      state.scene?.setView(button.dataset.camera);
+      document
+        .querySelectorAll("[data-camera]")
+        .forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+    }),
+  );
   function startBrew() {
     state.shot = M.simulate(state.params);
     state.finished = false;
