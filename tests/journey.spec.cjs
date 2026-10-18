@@ -3,6 +3,9 @@ async function setup(page) {
   await page.route("https://**/*", (r) => r.abort());
   await page.route("**/renderer.bundle.js*", (r) => r.abort());
   await page.goto("/");
+  await page.locator(".physics-settings summary").click();
+  await page.selectOption("#physicsBackend", "simple");
+  await page.locator(".physics-settings summary").click();
 }
 async function finish(page) {
   await page.getByRole("button", { name: "このレシピで抽出する" }).click();

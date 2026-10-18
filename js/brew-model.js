@@ -198,6 +198,30 @@
     // Avoid impossible concentrations when a shot is almost completely blocked.
     const ey = Math.min(candidateEY, (output * 25) / p.dose);
     const tds = output > 0 ? (ey * p.dose) / output : 0;
+    for (const s of samples) {
+      const fraction = output > 0 ? s.yield / output : 0;
+      s.tdsCup = fraction > 0 ? tds * (1 + 0.8 * (1 - fraction)) : 0;
+      s.ey = (s.tdsCup * s.yield) / p.dose;
+      s.tdsInst = fraction > 0 ? Math.max(0, tds * (1.8 - 1.6 * fraction)) : 0;
+      s.epsTop = eps - 0.03 * (s.p / 9);
+      s.epsMid = eps - 0.05 * (s.p / 9);
+      s.epsBot = eps - 0.08 * (s.p / 9);
+    }
+    return {
+      params: p,
+      samples,
+      duration,
+      output,
+      complete,
+      ey,
+      tds,
+      risk,
+      fines,
+      ...assess(p, { duration, complete, ey, tds, risk }),
+    };
+  }
+  function assess(p, { duration, complete, ey, tds, risk }) {
+    const roast = (95 - p.roastLevel) / 60;
     const flavor = {
       acidity: clamp(
         (10 - roast * 6) * (1 - Math.min(0.4, duration / 45)),
@@ -220,15 +244,6 @@
         9.8,
       ),
     };
-    for (const s of samples) {
-      const fraction = output > 0 ? s.yield / output : 0;
-      s.tdsCup = fraction > 0 ? tds * (1 + 0.8 * (1 - fraction)) : 0;
-      s.ey = (s.tdsCup * s.yield) / p.dose;
-      s.tdsInst = fraction > 0 ? Math.max(0, tds * (1.8 - 1.6 * fraction)) : 0;
-      s.epsTop = eps - 0.03 * (s.p / 9);
-      s.epsMid = eps - 0.05 * (s.p / 9);
-      s.epsBot = eps - 0.08 * (s.p / 9);
-    }
     const breakdown = [
       {
         label: "抽出のバランス",
@@ -329,6 +344,48 @@
           "挽き目や粉量を揃えたまま、温度による味の違いを比べてみましょう。",
       };
     }
+    return { flavor, score, breakdown, title, description, next };
+  }
+  function fromMeasurements(
+    input,
+    records,
+    { risk = 5, diagnostics = null } = {},
+  ) {
+    const p = normalize(input);
+    if (!Array.isArray(records) || records.length < 2)
+      throw new Error("GPU samples are missing");
+    let previous = -1,
+      previousOutput = 0;
+    const samples = records.map((s) => {
+      if (
+        !["t", "p", "q", "yield", "solute"].every((k) =>
+          Number.isFinite(s[k]),
+        ) ||
+        s.t <= previous ||
+        s.yield < previousOutput - 1e-6 ||
+        s.solute < 0 ||
+        s.solute > s.yield + 1e-6
+      )
+        throw new Error("Invalid physical sample");
+      previous = s.t;
+      previousOutput = s.yield;
+      return {
+        ...s,
+        tdsCup: s.yield > 0 ? (s.solute / s.yield) * 100 : 0,
+        ey: (s.solute / p.dose) * 100,
+        tdsInst: s.yield > 0 ? (s.solute / s.yield) * 100 : 0,
+        epsTop: s.porosity ?? 0.4,
+        epsMid: s.porosity ?? 0.4,
+        epsBot: s.porosity ?? 0.4,
+      };
+    });
+    const last = samples.at(-1),
+      duration = last.t,
+      output = last.yield,
+      ey = last.ey,
+      tds = last.tdsCup,
+      complete = output >= p.targetYield - 0.001;
+    risk = clamp(risk, 0, 95);
     return {
       params: p,
       samples,
@@ -338,13 +395,10 @@
       ey,
       tds,
       risk,
-      flavor,
-      score,
-      breakdown,
-      title,
-      description,
-      next,
-      fines,
+      fines: 0,
+      source: "gpu",
+      diagnostics,
+      ...assess(p, { duration, complete, ey, tds, risk }),
     };
   }
   function sampleAt(shot, time) {
@@ -372,6 +426,8 @@
     normalize,
     simulate,
     sampleAt,
+    pressureAt,
+    fromMeasurements,
   };
   if (typeof module !== "undefined") module.exports = api;
   else root.BrewModel = api;

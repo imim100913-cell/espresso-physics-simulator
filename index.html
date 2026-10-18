@@ -12,7 +12,7 @@
       content="レシピを選び、抽出を見守り、一杯を振り返る。スマホで学ぶエスプレッソシミュレーター。"
     />
     <title>Espresso Lab — あなたの一杯を見つけよう</title>
-    <link rel="stylesheet" href="index.css?v=4.1.0" />
+    <link rel="stylesheet" href="index.css?v=4.2.0" />
   </head>
   <body class="mode-basic" data-step="setup">
     <a class="skip-link" href="#mainContent">メインコンテンツへ</a>
@@ -595,6 +595,36 @@
           </p>
           <div id="customPointInputs"></div>
         </details>
+        <details class="report-details physics-settings">
+          <summary>
+            物理計算を選ぶ<span id="physicsModeSummary"
+              >対応端末ではGPUで計算</span
+            >
+          </summary>
+          <div class="details-body">
+            <label for="physicsBackend">計算方法</label>
+            <select id="physicsBackend" class="custom-select">
+              <option value="auto" selected>
+                自動：WebGPU対応なら粒子計算
+              </option>
+              <option value="gpu">GPU物理：MLS-MPM + XPBD</option>
+              <option value="simple">簡易モデル：すぐに試す</option>
+            </select>
+            <label for="physicsParticles">粉体の粒子数</label>
+            <select id="physicsParticles" class="custom-select">
+              <option value="auto" selected>
+                端末に合わせる（スマホ32,768 / PC100,000）
+              </option>
+              <option value="100000">100,000</option>
+              <option value="250000">250,000</option>
+              <option value="500000">500,000（高負荷）</option>
+            </select>
+            <p class="small-note">
+              GPU物理では、圧密した粉への浸透・溶出と、液体がカップに届くまでを計算します。計算の速さは端末次第です。初めての方は自動のままで始められます。
+            </p>
+            <p class="small-note" id="physicsAvailability"></p>
+          </div>
+        </details>
         <p class="simulation-note">
           これは仮想の抽出実験です。抽出が終わると、味の予測・評価点・次の調整ヒントが表示されます。
         </p>
@@ -702,6 +732,14 @@
             ><strong id="liveFlowRate">0.00 <small>g/s</small></strong>
           </div>
         </div>
+        <details id="gpuDiagnostics" class="report-details" hidden>
+          <summary>GPUで計算中<span id="gpuParticleLabel"></span></summary>
+          <dl id="gpuDiagnosticValues" class="snapshot-grid details-body"></dl>
+          <p class="small-note details-body">
+            秒数は計算世界の経過時間です。保存誤差は、水・コーヒー成分・流出液それぞれの入出力の差を示します。
+          </p>
+        </details>
+        <p id="backendStatus" class="small-note" role="status"></p>
         <div class="learning-card">
           <span aria-hidden="true">i</span>
           <div>
@@ -746,7 +784,7 @@
           <h2 id="tasteTitle"></h2>
           <p id="tasteDescription"></p>
           <div id="tasteTags" class="taste-tags"></div>
-          <p class="report-note">
+          <p class="report-note" id="resultSource">
             味・点数は簡易モデルによる予測です。実際の味や品質を保証する評価ではありません。
           </p>
         </article>
@@ -757,7 +795,7 @@
           </div>
           <div>
             <span>抽出時間</span><strong id="resultTime"></strong
-            ><small>お湯を通した時間</small>
+            ><small id="resultTimeNote">お湯を通した時間</small>
           </div>
           <div>
             <span
@@ -948,7 +986,7 @@
       <footer class="app-footer">
         <span class="footer-mark">espresso lab</span>
         <p>挽き目ひとつで、次の一杯が変わる。</p>
-        <small>学習用の簡易シミュレーション · 実測値ではありません</small>
+        <small>学習用の物理モデル · 実測値ではありません</small>
       </footer>
     </main>
     <div class="action-dock" role="region" aria-label="次の操作">
@@ -995,8 +1033,9 @@
       <div id="savedRecipeList" class="saved-recipe-list"></div>
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="js/brew-model.js"></script>
-    <script src="js/app.js?v=4.1.0"></script>
-    <script src="js/journey.js?v=4.1.0"></script>
+    <script src="js/brew-model.js?v=4.2.0"></script>
+    <script src="js/app.js?v=4.2.0"></script>
+    <script src="js/gpu-journey.js?v=4.2.0"></script>
+    <script src="js/journey.js?v=4.2.0"></script>
   </body>
 </html>

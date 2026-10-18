@@ -49,6 +49,10 @@
     recipeName: "バランス",
     scene: null,
     sceneLoading: false,
+    generation: 0,
+    gpu: null,
+    gpuPending: false,
+    gpuSample: null,
   };
   let toastTimer;
   function notify(message) {
@@ -224,7 +228,15 @@
       charts.renderPSDPreview(state.params.grindSize, estimate.fines);
     updateDock();
   }
+  function releaseGpu() {
+    state.generation++;
+    state.gpu?.dispose();
+    state.gpu = null;
+    state.gpuPending = false;
+    state.gpuSample = null;
+  }
   function changeParams(params, name) {
+    releaseGpu();
     state.params = M.normalize(params);
     state.recipeName = name;
     state.finished = false;
@@ -289,7 +301,10 @@
         state.shot.ey,
         state.shot.flavor,
         {
-          title: "簡易モデルの推定値",
+          title:
+            state.shot.source === "gpu"
+              ? "GPU計算から得た値"
+              : "簡易モデルの推定値",
           desc: "収率18〜22%・濃度8〜12%を参考域として表示。豆や好みにより適する範囲は異なります。",
         },
       );
@@ -356,6 +371,18 @@
     }),
   );
 
+  text(
+    "physicsAvailability",
+    navigator.gpu
+      ? "WebGPU APIを検出しました。抽出開始時にGPUの利用可否を確認します。"
+      : "このブラウザでは簡易モデルを利用します。",
+  );
+  $("physicsBackend").addEventListener("change", () =>
+    text(
+      "physicsModeSummary",
+      $("physicsBackend").selectedOptions[0].textContent,
+    ),
+  );
   async function ensureScene() {
     if (
       state.scene ||
@@ -365,7 +392,7 @@
       return;
     state.sceneLoading = true;
     try {
-      const { EspressoScene } = await import("./renderer.bundle.js?v=4.1.0");
+      const { EspressoScene } = await import("./renderer.bundle.js?v=4.2.0");
       state.scene = new EspressoScene("viewport3DContainer");
       state.scene.setQuality($("renderQuality").value);
       $("renderQuality").value = state.scene.quality;
@@ -426,7 +453,9 @@
         .forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
     }),
   );
-  function startBrew() {
+  async function startBrew() {
+    releaseGpu();
+    const generation = state.generation;
     state.shot = M.simulate(state.params);
     state.finished = false;
     state.paused = false;
@@ -438,7 +467,23 @@
     $("analyticsDetails").open = false;
     setStep("brew");
     text("yieldTarget", `目標 ${fmt(state.shot.params.targetYield)} g`);
+    state.gpuPending =
+      $("physicsBackend").value !== "simple" && !!navigator.gpu;
+    state.gpuSample = null;
+    $("gpuDiagnostics").hidden = true;
+    $("btnSkipBrew").disabled = state.gpuPending;
+    text(
+      "backendStatus",
+      state.gpuPending
+        ? "GPUの計算を準備しています…"
+        : "簡易モデルで抽出を予測しています",
+    );
+    text("btnSkipBrew", "アニメを省略して結果へ →");
     renderPlayback();
+    if (state.gpuPending) {
+      text("phasePill", "物理計算を準備");
+      text("remainingTime", "初回は準備に時間がかかります");
+    }
     if (state.scene) {
       state.scene.onResize();
       state.scene.updateConfig({
@@ -447,7 +492,97 @@
       });
       state.scene.start(state.shot.duration + 7.5);
     }
-    ensureScene();
+    if (state.gpuPending) {
+      try {
+        await ensureScene();
+        if (generation !== state.generation) return;
+        const particleCount =
+          $("physicsParticles").value === "auto"
+            ? matchMedia("(max-width:700px)").matches
+              ? 32768
+              : 100000
+            : +$("physicsParticles").value;
+        const session = await window.GpuBrewSession.create({
+          recipe: state.shot.params,
+          particleCount,
+          scene: state.scene,
+          onNotice: notify,
+          onUpdate: ({ diagnostics: d, sample, elapsed, draining }) => {
+            if (generation !== state.generation) return;
+            state.gpuSample = sample;
+            state.elapsed = elapsed;
+            renderPlayback(0.02);
+            text(
+              "remainingTime",
+              draining
+                ? "流出した液体をカップへ集めています"
+                : `計算時間 ${fmt(d.hydraulicSeconds)} 秒`,
+            );
+            text(
+              "backendStatus",
+              `GPU物理 · ${d.particleCount.toLocaleString()} 粒子 · ${fmt(d.gpuBatchWallMilliseconds ?? 0, 0)} ms / バッチ`,
+            );
+            fillDL("gpuDiagnosticValues", [
+              ["水の流入", fmt(d.waterInKg * 1000, 3) + " g"],
+              ["液体の流出", fmt(d.outletSolutionKg * 1000, 3) + " g"],
+              ["粉の残量", fmt(d.dryMassKg * 1000, 3) + " g"],
+              ["粉の平均高さ", fmt(d.meanHeightMeters * 1000, 2) + " mm"],
+              ["水の保存誤差", (d.waterErrorKg * 1000).toExponential(2) + " g"],
+              [
+                "成分の保存誤差",
+                (d.coffeeErrorKg * 1000).toExponential(2) + " g",
+              ],
+              [
+                "液体の保存誤差",
+                (d.liquidErrorKg * 1000).toExponential(2) + " g",
+              ],
+              ["非有限値", String(d.nanCount)],
+            ]);
+          },
+          onComplete: (shot) => {
+            if (generation !== state.generation) return;
+            state.shot = shot;
+            finishBrew();
+          },
+          onError: (error) => {
+            if (generation !== state.generation) return;
+            notify(error.message);
+            text(
+              "backendStatus",
+              error.message + " 設定に戻って、簡易モデルで再試行できます。",
+            );
+            state.paused = true;
+            state.gpu?.dispose();
+            $("btnSkipBrew").disabled = true;
+            $("btnPrimary").disabled = true;
+            updateDock();
+          },
+        });
+        if (generation !== state.generation) {
+          session.dispose();
+          return;
+        }
+        state.gpu = session;
+        state.gpuPending = false;
+        $("gpuDiagnostics").hidden = false;
+        text("gpuParticleLabel", particleCount.toLocaleString() + " 粒子");
+        text("btnSkipBrew", "ここまでの計算で結果を見る →");
+        $("btnSkipBrew").disabled = false;
+        session.paused = state.paused;
+        session.start();
+        return;
+      } catch (error) {
+        if (generation !== state.generation) return;
+        state.gpuPending = false;
+        notify("GPU計算を開始できなかったため、簡易モデルに切り替えました。");
+        text("backendStatus", "簡易モデルで実行中 · " + error.message);
+        $("btnSkipBrew").disabled = false;
+      }
+    } else {
+      if ($("physicsBackend").value === "gpu")
+        notify("この端末はWebGPU非対応のため、簡易モデルで実行します");
+      ensureScene();
+    }
     state.tickAt = performance.now();
     cancelAnimationFrame(state.raf);
     state.raf = requestAnimationFrame(tick);
@@ -470,7 +605,7 @@
     const elapsed = state.elapsed,
       shot = state.shot,
       extractT = Math.max(0, elapsed - 7.5),
-      sample = M.sampleAt(shot, extractT);
+      sample = state.gpuSample ?? M.sampleAt(shot, extractT);
     const stage = elapsed < 4.5 ? 0 : elapsed < 7.5 ? 1 : 2;
     const phase = ["豆を挽く", "粉を詰める", "お湯を通す"][stage];
     const tips = [
@@ -503,7 +638,13 @@
     text("liveYield", fmt(sample.yield) + " g");
     text("livePressure", fmt(stage === 2 ? sample.p : 0) + " bar");
     text("liveFlowRate", fmt(stage === 2 ? sample.q : 0, 2) + " g/s");
-    const progress = (elapsed / (shot.duration + 7.5)) * 100;
+    const progress = state.gpu
+      ? Math.min(
+          99,
+          Math.min(15, (elapsed / 7.5) * 15) +
+            (sample.yield / shot.params.targetYield) * 84,
+        )
+      : (elapsed / (shot.duration + 7.5)) * 100;
     $("brewProgressFill").style.width = progress + "%";
     document
       .querySelector(".brew-progress")
@@ -544,7 +685,16 @@
   function renderReport() {
     const s = state.shot,
       p = s.params;
-    text("completionTag", s.complete ? "✓ 抽出完了" : "120秒で抽出を終了");
+    text(
+      "completionTag",
+      s.complete ? "✓ 抽出完了" : (s.stopReason ?? "120秒で抽出を終了"),
+    );
+    text(
+      "resultSource",
+      s.source === "gpu"
+        ? `WebGPUで計算した液量・溶質量からTDSと収率を算出。${s.diagnostics.particleCount.toLocaleString()}粒子。味・点数は参考予測です。物性値は未校正です。`
+        : "味・点数は簡易モデルによる予測です。実際の味や品質を保証する評価ではありません。",
+    );
     text(
       "resultTitle",
       s.complete
@@ -572,6 +722,10 @@
       "粉 " + fmt(p.dose) + " g · 1:" + fmt(s.output / p.dose),
     );
     text("resultTime", fmt(s.duration) + " s");
+    text(
+      "resultTimeNote",
+      s.source === "gpu" ? "通水＋落下液の回収時間" : "お湯を通した時間",
+    );
     text("resultTDS", fmt(s.tds) + " %");
     text("resultEY", fmt(s.ey) + " %");
     const breakdown = $("scoreBreakdown");
@@ -660,19 +814,30 @@
       changeParams(state.shot.params, "自分だけ");
     else {
       state.paused = !state.paused;
+      if (state.gpu) state.gpu.paused = state.paused;
       state.tickAt = performance.now();
       updateDock();
       renderPlayback();
     }
   });
   $("btnCancelBrew").addEventListener("click", () => {
+    releaseGpu();
+    $("btnPrimary").disabled = false;
     cancelAnimationFrame(state.raf);
     state.scene?.stop();
     state.shot = null;
     state.finished = false;
     setStep("setup");
   });
-  $("btnSkipBrew").addEventListener("click", finishBrew);
+  $("btnSkipBrew").addEventListener("click", () => {
+    if (state.gpu) {
+      state.gpu.finishEarly();
+      state.paused = false;
+      $("btnSkipBrew").disabled = true;
+      text("backendStatus", "ポンプを止めて、流出済みの液体を集めています");
+      updateDock();
+    } else if (!state.gpuPending) finishBrew();
+  });
   $("btnApplySuggestion").addEventListener("click", () => {
     const s = state.shot;
     changeParams({ ...s.params, [s.next.key]: s.next.value }, "次の実験");
@@ -681,6 +846,7 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && state.step === "brew" && !state.paused) {
       state.paused = true;
+      if (state.gpu) state.gpu.paused = true;
       updateDock();
       renderPlayback();
     }

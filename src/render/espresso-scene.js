@@ -289,7 +289,14 @@ export class EspressoScene {
       [0, 0.09],
       [0, 0],
     ];
-    this.mesh(turned(cupProfile, 128), ceramic, this.scene, 0, 0.08, 0);
+    this.cupBody = this.mesh(
+      turned(cupProfile, 128),
+      ceramic,
+      this.scene,
+      0,
+      0.08,
+      0,
+    );
     const cupHandle = this.mesh(
       new THREE.TorusGeometry(0.135, 0.034, 16, 48, Math.PI * 1.6),
       ceramic,
@@ -298,6 +305,7 @@ export class EspressoScene {
       0.3,
       0,
     );
+    this.cupHandle = cupHandle;
     cupHandle.rotation.z = -Math.PI * 0.8;
     this.mesh(
       turned(
@@ -801,16 +809,45 @@ export class EspressoScene {
       );
     }
     pos.needsUpdate = true;
-    this.dosingPowder.visible = t > 0.1 && t < 4.5;
+    this.dosingPowder.visible = !this.gpuView && t > 0.1 && t < 4.5;
     this.liquid.update({
       t: extract,
       q: t > 7.5 ? s.q : 0,
       pressure: s.p,
-      tds: s.tdsCup,
+      tds: s.tdsCup ?? s.tds ?? 0,
       output: t > 7.5 ? s.yield : 0,
       target: c.targetYield,
       waterTemp: c.waterTemp,
     });
+    if (this.gpuView) {
+      this.liquid.strands.forEach((s) => (s.mesh.visible = false));
+      this.liquid.drops.visible = false;
+      this.liquid.crema.scale.setScalar(1.35);
+      this.liquid.pool.scale.set(1.35, 1, 1.35);
+    }
+  }
+  setGpuView(view) {
+    this.gpuView = view;
+    if (view) {
+      this.liquid.strands.forEach((s) => (s.mesh.visible = false));
+      this.liquid.drops.visible = false;
+    }
+    if (!view) {
+      this.liquid.crema.scale.setScalar(1);
+      this.liquid.pool.scale.set(1, 1, 1);
+      this.liquid.drops.visible = true;
+    }
+    const visible = !view;
+    this.bed.group.visible = visible;
+    this.micro.visible = visible;
+    this.dosingPowder.visible = visible;
+    if (this.cupHandle) {
+      this.cupHandle.position.x = 0.39 * (visible ? 1 : 1.35);
+      this.cupHandle.scale.setScalar(visible ? 1 : 1.35);
+    }
+    if (this.cupBody) {
+      this.cupBody.scale.set(visible ? 1 : 1.35, 1, visible ? 1 : 1.35);
+    }
   }
   animate(now) {
     if (this.disposed) return;
@@ -837,11 +874,20 @@ export class EspressoScene {
       );
     if (this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
+    try {
+      this.gpuView?.render();
+    } catch (error) {
+      if (this.gpuView) {
+        this.gpuView.enabled = false;
+        this.gpuView.onError?.(error);
+      }
+    }
     this.container.dataset.drawCalls = String(this.renderer.info.render.calls);
   }
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.gpuView?.dispose();
     cancelAnimationFrame(this.raf);
     this.observer.disconnect();
     this.controls.dispose();
@@ -865,3 +911,7 @@ export class EspressoScene {
 export { THREE };
 
 export { ScreenSpaceFluid } from "./ssfr.js";
+
+export { createCoupledSolver } from "../gpu/coupled-solver.js";
+
+export { CoupledGpuView } from "../gpu/gpu-view.js";
