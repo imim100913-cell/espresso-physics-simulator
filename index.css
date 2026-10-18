@@ -2034,3 +2034,60 @@ dialog::backdrop {
     scroll-behavior: auto !important;
   }
 }
+
+.render-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.camera-buttons {
+  display: flex;
+  gap: 3px;
+}
+.render-button {
+  min-height: 44px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  border-radius: 7px;
+  font-size: 11px;
+}
+.render-button[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green);
+}
+.quality-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.quality-label select {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 5px 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 11px;
+}
+@media (max-width: 400px) {
+  .render-button {
+    padding-inline: 9px;
+    font-size: 10px;
+  }
+  .quality-label {
+    font-size: 9px;
+    gap: 4px;
+  }
+  .quality-label select {
+    font-size: 10px;
+    padding-inline: 3px;
+  }
+}

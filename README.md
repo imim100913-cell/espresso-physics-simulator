@@ -1,4 +1,4 @@
-# Espresso Lab — Espresso Physics Simulator v4
+# Espresso Lab — Espresso Physics Simulator v4.1
 
 🌐 **公開アプリ**: https://imim100913-cell.github.io/espresso-physics-simulator/
 
@@ -33,7 +33,7 @@ npm start
 # http://localhost:4173
 ```
 
-3D表示だけがCDN上のThree.jsとOrbitControlsを遅延読み込みします。CDNやWebGLが使えない場合も、軽量な表示で抽出・数値・結果を利用できます。`prefers-reduced-motion` が有効な環境は3Dを読み込みません。
+3D表示だけがローカル同梱のThree.jsバンドルを遅延読み込みします。バンドルやWebGLが使えない場合も、軽量な表示で抽出・数値・結果を利用できます。`prefers-reduced-motion` が有効な環境は3Dを読み込みません。
 
 ## 検証
 
@@ -59,3 +59,30 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
 - `js/app.js` — 既存の3DシーンとCanvasチャートの表示用クラス
 - `tests/` — 計算と一連のユーザー操作のテスト
 - `js/main.js` / `js/ui/` — v3の分割実装。現在の画面からは読み込みません
+
+## 3D描画の刷新（v4.1）
+
+[グラフィックス・物理レンダリング設計書](docs/architecture/graphics-physics.md) に、全体パイプライン、断面／粉体／湿潤のGLSL、液流とSSFR、精密造形、WebGPU連成の導入設計をまとめています。今回動く実装と、実機校正・大規模ソルバーとして残る開発は設計書の表で区別しています。
+
+- 3DはThree.js **0.186.1**をローカルに同梱。断面、パック／液流のカメラ、3段階の画質を選べます。
+- 閉じたバスケット形状の切断面、実際に穴の開いた底面、連続ベッドと表面微粒子、圧密／湿潤のシェーダー、動的液流とクレマを実装。
+- シネマのSSR/SSAO/DoFは外観表示向けです。断面では内部の可読性と正しい描画を優先し、追加効果を制限します。
+- 表示用の湿潤・液流は視覚的なモデルです。MLS-MPM/XPBDの大規模連成は今後の開発で、現行の味・参考点は引き続き簡易モデルの推定です。
+- `src/render/ssfr.js` と `src/gpu/wetting-reference.js` は独立した参照実装。公開画面の物理ソルバーとしては接続していません。
+
+ソースを変更したときはバンドルを再生成し、`js/renderer.bundle.js` を含めてコミットします。公開サイトではビルドやCDN接続は不要です。
+
+```sh
+npm ci
+npm run build
+npm test
+npm run test:e2e
+```
+
+ブラウザテストは実WebGLのシェーダーとSSFRのコンパイルも検査します。WebGPUの参照実装テストは、テストブラウザにadapterがある場合だけ実行し、ない場合は明示的にスキップします。
+
+CI等でソフトウェアGPUを明示してGPU参照テストまで実行する場合（ハードウェア性能の評価には使いません）:
+
+```sh
+PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium PLAYWRIGHT_SOFTWARE_GPU=1 npm run test:e2e
+```

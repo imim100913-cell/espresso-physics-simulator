@@ -1,6 +1,7 @@
 const { test, expect } = require("@playwright/test");
 async function setup(page) {
   await page.route("https://**/*", (r) => r.abort());
+  await page.route("**/renderer.bundle.js*", (r) => r.abort());
   await page.goto("/");
 }
 async function finish(page) {

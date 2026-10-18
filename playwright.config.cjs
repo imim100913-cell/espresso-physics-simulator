@@ -1,7 +1,7 @@
 const { defineConfig } = require("@playwright/test");
 module.exports = defineConfig({
   testDir: "tests",
-  testMatch: "journey.spec.cjs",
+  testMatch: "*.spec.cjs",
   fullyParallel: true,
   use: {
     baseURL: "http://127.0.0.1:4173",
@@ -10,7 +10,16 @@ module.exports = defineConfig({
       ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
         ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
         : {}),
-      args: ["--no-sandbox"],
+      args: [
+        "--no-sandbox",
+        ...(process.env.PLAYWRIGHT_SOFTWARE_GPU
+          ? [
+              "--enable-unsafe-webgpu",
+              "--use-angle=swiftshader",
+              "--enable-unsafe-swiftshader",
+            ]
+          : []),
+      ],
     },
     viewport: { width: 390, height: 844 },
     isMobile: true,
