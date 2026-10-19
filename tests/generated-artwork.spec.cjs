@@ -25,7 +25,7 @@ async function motion(page) {
     yield: document.getElementById("liveYield").textContent,
   }));
 }
-test("generated product layers move with the shot; shared materials and backdrop pause together without GPU", async ({
+test("held tools and materials follow the shot and pause together without GPU", async ({
   page,
 }, info) => {
   test.setTimeout(45000);
@@ -70,7 +70,7 @@ test("generated product layers move with the shot; shared materials and backdrop
   await page.locator("#btnPrimary").click();
   await page.clock.runFor(500);
   expect(await motion(page)).not.toEqual(frozen);
-  expect(new Set(resources.map((r) => r.name)).size).toBe(3);
+  expect(new Set(resources.map((r) => r.name)).size).toBe(4);
   expect(resources.reduce((sum, r) => sum + r.bytes, 0)).toBeLessThan(
     1_500_000,
   );

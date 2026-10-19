@@ -75,7 +75,7 @@ export class LiquidSurface {
     this.group.add(this.crema);
     // A small meniscus rises with actual modeled cup mass.
     this.pool = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.34, 0.31, 0.025, 64),
+      new THREE.CylinderGeometry(0.34, 0.3, 1, 64),
       this.material,
     );
     this.pool.visible = false;
@@ -176,8 +176,10 @@ export class LiquidSurface {
     }
     this.drops.instanceMatrix.needsUpdate = true;
     this.crema.visible = this.pool.visible = output > 0.05;
-    this.crema.position.y = level + 0.016;
-    this.pool.position.y = level;
+    this.crema.position.y = level + 0.0015;
+    // The liquid volume grows from the inside floor, rather than a floating disc.
+    this.pool.scale.y = Math.max(0.00001, level - this.bottom);
+    this.pool.position.y = this.bottom + this.pool.scale.y / 2;
     this.cremaUniforms.uTime.value = t;
     this.cremaUniforms.uTDS.value = tds;
     this.cremaUniforms.uLevel.value = output / Math.max(target, 1);
