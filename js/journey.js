@@ -58,10 +58,21 @@
     gpuPending: false,
     gpuSample: null,
     gpuStartupController: null,
-    visualDisabled:
-      mobile || matchMedia("(prefers-reduced-motion: reduce)").matches,
+    visualDisabled: true,
   };
-  const illustration = new window.BrewIllustration($("brewIllustration"));
+  const savedArtwork = read(
+    "espressoLabArtwork",
+    navigator.connection?.saveData ? "diagram" : "photo",
+  );
+  $("illustrationStyle").value =
+    savedArtwork === "diagram" ? "diagram" : "photo";
+  const illustration = new window.BrewIllustration($("brewIllustration"), {
+    style: $("illustrationStyle").value,
+  });
+  $("illustrationStyle").addEventListener("change", (event) => {
+    illustration.setStyle(event.target.value);
+    write("espressoLabArtwork", event.target.value);
+  });
   let toastTimer;
   function notify(message) {
     text("toast", message);
@@ -450,7 +461,7 @@
       return;
     state.sceneLoading = true;
     try {
-      const { EspressoScene } = await import("./renderer.bundle.js?v=4.3.0");
+      const { EspressoScene } = await import("./renderer.bundle.js?v=4.4.0");
       if (
         state.visualDisabled ||
         state.step !== "brew" ||

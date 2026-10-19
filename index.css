@@ -986,6 +986,61 @@ body.mode-basic .advanced-only {
   width: 100%;
   height: 100%;
   display: block;
+  position: relative;
+}
+.art-photo-backdrop {
+  position: absolute;
+  inset: -2px;
+  background-size: cover;
+  background-position: center bottom;
+  display: none;
+  pointer-events: none;
+}
+.photo-ready .art-photo-backdrop {
+  display: block;
+}
+.generated-layer,
+.generated-bean {
+  display: none;
+}
+.art-rich .generated-layer,
+.art-rich .generated-bean {
+  display: inline;
+}
+.art-rich .art-vector,
+.art-rich .coffee-bean > :not(.generated-bean) {
+  display: none;
+}
+.art-rich #artBed {
+  fill: url(#richPowder);
+}
+.art-rich #artWetBed {
+  fill: url(#richWetPowder);
+}
+.art-rich #artCrema {
+  fill: url(#richCremaTexture);
+}
+.art-rich #artSteam {
+  filter: url(#richSteam);
+  stroke-width: 5px;
+}
+.art-rich #artWeighReadout,
+.art-rich #artShotWeight,
+.art-rich #artMachineTemp {
+  fill: #f6d4a4;
+}
+.art-rich #artWeighReadout {
+  font-size: 20px;
+}
+.art-rich #artScene > ellipse {
+  opacity: 0.12;
+}
+.art-rich #artPrepMat {
+  filter: url(#richShadow);
+}
+.art-rich #artPrepMat path:first-child {
+  fill: #282a22;
+  stroke: #79745c;
 }
 .illustration-mode {
   position: absolute;
