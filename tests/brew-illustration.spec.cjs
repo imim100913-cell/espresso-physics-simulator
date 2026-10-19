@@ -59,6 +59,7 @@ test("barista scenes show only each step's tools, then wetting and measured cup 
   const requests = await setup(page);
   const art = page.locator("#brewIllustration");
   await expect(art).toBeVisible();
+  await expect(art).toHaveAttribute("data-artwork", "photo");
   await expect(page.locator("#viewSettings")).not.toHaveAttribute("open");
   // No machine, grinder, portafilter or cup belongs in bean weighing.
   await advanceTo(page, 2.5);
@@ -73,12 +74,10 @@ test("barista scenes show only each step's tools, then wetting and measured cup 
   await expect(art).toHaveAttribute("data-phase", "grind");
   await equipment(page, ["Grinder", "Basket"]);
   const looseBed = await page.locator("#artBed").getAttribute("d");
-  const bounds = await page
-    .locator("#artBed")
-    .evaluate((node) => ({
-      height: node.getBBox().height,
-      width: node.getBBox().width,
-    }));
+  const bounds = await page.locator("#artBed").evaluate((node) => ({
+    height: node.getBBox().height,
+    width: node.getBBox().width,
+  }));
   expect(bounds.height).toBeGreaterThan(30);
   expect(bounds.height).toBeLessThan(70);
   expect(bounds.width).toBeCloseTo(98, 0);

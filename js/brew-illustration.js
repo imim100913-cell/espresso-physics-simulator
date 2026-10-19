@@ -24,7 +24,7 @@
     return node;
   }
   function bean(parent, index) {
-    const group = element("g", {}, parent);
+    const group = element("g", { class: "coffee-bean" }, parent);
     element(
       "ellipse",
       {
@@ -49,7 +49,7 @@
     return group;
   }
   class BrewIllustration {
-    constructor(root) {
+    constructor(root, { style = "photo" } = {}) {
       this.root = root;
       this.nodes = {};
       root
@@ -86,13 +86,29 @@
           },
           this.nodes.artFilterHoles,
         );
+      this.artwork = window.BrewArtwork
+        ? new window.BrewArtwork(
+            root,
+            this.nodes,
+            () => {
+              if (this.lastFrame) this.update(this.lastFrame);
+            },
+            style,
+          )
+        : { active: false, setStyle() {} };
+    }
+    setStyle(style) {
+      this.artwork.setStyle(style);
+      if (this.lastFrame) this.update(this.lastFrame);
     }
     update({ elapsed = 0, sample = {}, params = {} }) {
+      this.lastFrame = { elapsed, sample, params };
       const n = this.nodes,
         t = Math.max(0, elapsed),
         stage = W.at(t);
       const { id: phase, progress: p, extractionTime: extract } = stage;
       const reduced = this.reduced.matches;
+      const photo = this.artwork.active;
       this.root.dataset.phase = phase;
       this.root.setAttribute(
         "aria-label",
@@ -109,9 +125,14 @@
       show(n.artCup, phase === "setup" || phase === "extract");
       show(n.artShotScale, phase === "setup" || phase === "extract");
       const enter = reduced ? 1 : smooth(0, 0.22, stage.localTime);
+      const push = phase === "extract" ? smooth(0, 16, extract) : p;
+      const zoom =
+        photo && !reduced
+          ? 1 + [0.035, 0.012, 0.1, 0.1, 0, 0.018][stage.index] * push
+          : 1;
       set(n.artScene, {
         opacity: 1,
-        transform: `translate(0 ${8 * (1 - enter)})`,
+        transform: `translate(320 ${240 + 8 * (1 - enter)}) scale(${zoom}) translate(-320 -240)`,
       });
       const collected = smooth(0.12, 0.78, p);
       n.artWeighReadout.textContent = `${((params.dose ?? 18) * collected).toFixed(1)} g`;
@@ -129,7 +150,7 @@
       this.weighDrops.forEach((node, i) => {
         const f = (stage.localTime * 2 + i * 0.19) % 1;
         set(node, {
-          transform: `translate(${371 - f * 51 + Math.sin(i * 3) * 11} ${139 + f * 87}) rotate(${i * 51 + f * 240})`,
+          transform: `translate(${(photo ? 358 : 371) - f * (photo ? 38 : 51) + Math.sin(i * 3) * 11} ${(photo ? 160 : 139) + f * (photo ? 73 : 87)}) rotate(${i * 51 + f * 240})`,
           opacity:
             phase === "weigh" && p > 0.12 && p < 0.78 && !reduced ? 1 : 0,
         });
@@ -156,9 +177,10 @@
       const preparing = phase === "distribute" || phase === "tamp";
       const lock = phase === "setup" ? smooth(0, 0.7, p) : 1;
       set(n.artBasket, {
-        transform: preparing
-          ? "translate(0 55)"
-          : `translate(0 ${26 * (1 - lock)}) rotate(${-12 * (1 - lock)} 320 178)`,
+        transform:
+          preparing || (photo && phase === "grind")
+            ? "translate(0 55)"
+            : `translate(0 ${(photo && stage.index >= 4 ? -14 : 0) + 26 * (1 - lock)}) rotate(${-12 * (1 - lock)} 320 178)`,
       });
       set(n.artWdt, {
         transform: `translate(${reduced ? 0 : Math.sin(p * Math.PI * 6) * 22} ${-7 * smooth(0.8, 1, p)})`,
@@ -193,24 +215,48 @@
       const level = 371 - fill * 51;
       n.artShotWeight.textContent = `${output.toFixed(1)} g`;
       n.artMachineTemp.textContent = `${params.waterTemp ?? 93}°C`;
+      set(
+        n.artMachineTemp,
+        photo
+          ? { x: 408, y: 96, "font-size": 11 }
+          : { x: 213, y: 160, "font-size": 9 },
+      );
+      set(
+        n.artShotWeight,
+        photo
+          ? { x: 326, y: 385, "font-size": 11 }
+          : { x: 342, y: 385, "font-size": 13 },
+      );
+      set(n.artCupClip.firstElementChild, {
+        d: photo
+          ? "M284 300Q320 288 355 300L350 362Q320 374 290 362Z"
+          : "M258 307 Q263 369 320 371 Q377 369 382 307Z",
+      });
       set(n.artPressureNeedle, {
         transform: `rotate(${phase === "extract" ? clamp((sample.p ?? 0) / 12) * 220 : 0} 210 102)`,
       });
       set(n.artCupLiquid, { y: level });
-      set(n.artCrema, { cy: level, opacity: output > 0 ? 0.94 : 0 });
+      set(n.artCrema, {
+        cy: level,
+        rx: photo ? 35 : 61,
+        opacity: output > 0 ? 0.94 : 0,
+      });
       set(n.artCremaSwirl, {
-        d: `M281 ${level}Q311 ${level - 6} 354 ${level}Q325 ${level + 5} 306 ${level}`,
-        opacity: output > 0 ? 0.65 : 0,
+        d: photo
+          ? `M293 ${level}Q316 ${level - 4} 347 ${level}Q325 ${level + 4} 306 ${level}`
+          : `M281 ${level}Q311 ${level - 6} 354 ${level}Q325 ${level + 5} 306 ${level}`,
+        opacity: output > 0 ? (photo ? 0.25 : 0.65) : 0,
       });
       const q = Math.max(0, sample.q ?? 0),
         active = phase === "extract" && q > 0.005;
+      const outlet = photo ? 231 : 245;
       const merge = smooth(0.2, 2.1, q) * smooth(0.2, 2.6, extract);
       set(n.artStreams, { opacity: active ? smooth(0.05, 0.9, extract) : 0 });
       [...n.artStreams.children].forEach((stream, i) => {
         const origin = 320 + (i - 1) * 27 * (1 - merge),
           sway = reduced ? 0 : Math.sin(t * 6 + i) * 1.7;
         set(stream, {
-          d: `M${origin} 245C${origin + sway} 260 ${320 + sway} 272 ${320 + sway} ${Math.max(296, level - 14)}`,
+          d: `M${origin} ${outlet}C${origin + sway} ${outlet + 15} ${320 + sway} 272 ${320 + sway} ${Math.max(296, level - 14)}`,
           "stroke-width":
             clamp(Math.sqrt(q) * 1.7, 0.8, 4) *
             (i === 1 ? 1 : (1 - merge) * 0.65),
@@ -221,7 +267,7 @@
         const f = (extract * 2.3 + i * 0.31) % 1;
         set(drop, {
           cx: 320 + (i - 1) * 23 * (1 - merge),
-          cy: 246 + f * (Math.max(296, level - 14) - 246),
+          cy: outlet + 1 + f * (Math.max(296, level - 14) - outlet - 1),
           rx: 1.4,
           ry: 2.8,
           opacity: active && extract < 2 && !reduced ? 1 - f : 0,
@@ -236,6 +282,18 @@
           d: `M${x} ${y}Q${x + 11} ${y - 11} ${x} ${y - 21}T${x + 3} ${y - 39}`,
           opacity: Math.sin(shift * Math.PI),
         });
+      });
+      this.artwork.update?.({
+        elapsed: t,
+        stage,
+        reduced,
+        q,
+        level,
+        pressure: sample.p ?? 0,
+        top,
+        heap,
+        dose,
+        collected,
       });
     }
   }
