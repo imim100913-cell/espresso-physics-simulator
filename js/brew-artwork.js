@@ -8,7 +8,8 @@
       ["tools", "barista-tools.webp"],
       ["materials", "coffee-materials.webp"],
       ["backdrop", "atelier.webp"],
-    ].map(([key, file]) => [key, new URL(file + "?v=4.4.0", base).href]),
+      ["hands", "barista-hands.webp"],
+    ].map(([key, file]) => [key, new URL(file + "?v=4.4.1", base).href]),
   );
   const create = (tag, attrs, parent) => {
     const node = document.createElementNS(ns, tag);
@@ -30,6 +31,7 @@
         viewBox: region.join(" "),
         preserveAspectRatio: "none",
         overflow: "hidden",
+        "data-art-bounds": target.join(" "),
       },
       parent,
     );
@@ -99,7 +101,6 @@
     }
     sync() {
       this.root.classList.toggle("art-rich", this.active);
-      this.root.parentElement.classList.toggle("photo-ready", this.active);
       this.root.dataset.artwork = this.active
         ? "photo"
         : this.mode === "diagram"
@@ -117,8 +118,41 @@
       crop(group, files.tools, [1774, 887], region, target);
       return group;
     }
+    heldTool(parent, region, target, attrs = {}, sleeve = "") {
+      const group = create("g", { class: "generated-layer", ...attrs }, parent);
+      // The forearm enters from the frame edge; its cutout must not end midair.
+      if (sleeve)
+        create(
+          "path",
+          {
+            d: sleeve,
+            fill: "url(#richSleeveTexture)",
+            class: "sleeve-extension",
+          },
+          group,
+        );
+      crop(group, files.hands, [1536, 1024], region, target);
+      return group;
+    }
     install() {
       this.defs = this.root.querySelector("defs");
+      const sleeve = create(
+        "pattern",
+        {
+          id: "richSleeveTexture",
+          patternUnits: "userSpaceOnUse",
+          width: 20,
+          height: 62,
+        },
+        this.defs,
+      );
+      crop(
+        sleeve,
+        files.hands,
+        [1536, 1024],
+        [669, 650, 55, 170],
+        [0, 0, 20, 62],
+      );
       const shadow = create(
         "filter",
         {
@@ -135,8 +169,8 @@
         "feDropShadow",
         {
           dx: 0,
-          dy: 3,
-          stdDeviation: 2.3,
+          dy: 1,
+          stdDeviation: 1.2,
           "flood-color": "#070904",
           "flood-opacity": 0.38,
         },
@@ -174,12 +208,56 @@
       this.nodes.artScene.insertBefore(this.streamGlint, this.nodes.artCup);
     }
     installBackdrop() {
-      this.backdrop = document.createElement("div");
-      this.backdrop.className = "art-photo-backdrop";
-      this.backdrop.id = "richBackdrop";
-      this.backdrop.style.backgroundImage = `radial-gradient(ellipse at 50% 48%, transparent 35%, #090d0770), url("${files.backdrop}")`;
-      this.backdrop.setAttribute("aria-hidden", "true");
-      this.root.before(this.backdrop);
+      // The worktop and every contact shadow share the equipment's coordinates.
+      // An HTML cover background moves its horizon on narrow/landscape viewports.
+      this.backdrop = create(
+        "g",
+        { id: "richBackdrop", class: "generated-layer", "aria-hidden": "true" },
+        this.root,
+      );
+      const wall = crop(
+        this.backdrop,
+        files.backdrop,
+        [1536, 1024],
+        [0, 0, 1536, 720],
+        [100, 0, 440, 280],
+      );
+      const table = crop(
+        this.backdrop,
+        files.backdrop,
+        [1536, 1024],
+        [0, 720, 1536, 304],
+        [100, 280, 440, 120],
+      );
+      this.root.insertBefore(this.backdrop, this.nodes.artScene);
+      const fit = () => {
+        const rect = this.root.getBoundingClientRect(),
+          matrix = this.root.getScreenCTM();
+        if (!rect.width || !rect.height || !matrix) return;
+        const inverse = matrix.inverse();
+        const first = new DOMPoint(rect.left, rect.top).matrixTransform(
+          inverse,
+        );
+        const last = new DOMPoint(rect.right, rect.bottom).matrixTransform(
+          inverse,
+        );
+        const targets = [
+          [wall, first.y, 280 - first.y],
+          [table, 280, last.y - 280],
+        ];
+        for (const [node, y, height] of targets) {
+          for (const [key, value] of Object.entries({
+            x: first.x,
+            y,
+            width: last.x - first.x,
+            height,
+          }))
+            node.setAttribute(key, value);
+        }
+      };
+      this.backdropObserver = new ResizeObserver(fit);
+      this.backdropObserver.observe(this.root);
+      fit();
     }
     mask(id, bounds, opening) {
       const [x, y, width, height] = bounds;
@@ -194,19 +272,19 @@
     installEquipment() {
       const n = this.nodes;
       this.vectorize("artWeigh", [
+        "artWeighContact",
         "artWeighReadout",
         "artWeighBeans",
         "artBeanScoop",
         "artWeighDrops",
       ]);
       this.vectorize("artBeanScoop");
-      this.vectorize("artGrinder", ["artBeans"]);
+      this.vectorize("artGrinder", ["artBeans", "artGrinderContact"]);
       this.vectorize("artTamper");
       this.vectorize("artWdt");
       this.vectorize("artMachine", ["artMachineTemp"]);
-      this.vectorize("artShotScale", ["artShotWeight"]);
       this.vectorize("artBasket", ["artBed", "artWetBed", "artGrounds"]);
-      this.vectorize("artCup", ["artSteam"]);
+      this.vectorize("artCup", ["artSteam", "artCupContact"]);
       n.artCupLiquid.parentElement.classList.remove("art-vector");
       const shadow = { filter: "url(#richShadow)" };
       n.artWeigh.prepend(
@@ -217,40 +295,40 @@
           shadow,
         ),
       );
-      this.sprite(
+      this.heldTool(
         n.artBeanScoop,
-        [1353, 467, 393, 381],
-        [367, 76, 103, 100],
-        shadow,
+        [72, 95, 668, 408],
+        [343.79, 74.85, 180.36, 110.16],
+        {},
+        "M519 76L1000 60V151L519 140Z",
       );
       n.artGrinder.prepend(
         this.sprite(
           n.artGrinder,
-          [568, 0, 215, 423],
-          [249, 5, 176, 346],
+          [568, 7, 215, 416],
+          [249, 40, 161.25, 312],
           shadow,
         ),
       );
-      this.sprite(
+      this.heldTool(
         n.artTamper,
-        [1502, 35, 219, 359],
-        [269, -13, 102, 167],
-        shadow,
+        [131, 561, 611, 410],
+        [264.53, -21.29, 262.73, 176.3],
+        {},
+        "M522 -15L1000 -20V116L522 109Z",
       );
-      this.sprite(n.artWdt, [162, 446, 112, 404], [299, 106, 40, 145], shadow);
+      this.heldTool(
+        n.artWdt,
+        [836, 52, 636, 456],
+        [288.5, 86.45, 222.6, 159.6],
+        {},
+        "M506 113L1000 105V211L506 202Z",
+      );
       n.artMachine.prepend(
         this.sprite(
           n.artMachine,
           [451, 428, 460, 453],
-          [171, 19, 348, 343],
-          shadow,
-        ),
-      );
-      n.artShotScale.prepend(
-        this.sprite(
-          n.artShotScale,
-          [27, 266, 385, 146],
-          [249, 364, 147, 29],
+          [170, 40, 330, 325],
           shadow,
         ),
       );
@@ -265,6 +343,13 @@
       this.sprite(n.artBasket, region, target, {
         mask: "url(#richBasketFrame)",
       });
+      this.lockHand = this.heldTool(
+        n.artBasket,
+        [1120, 560, 385, 335],
+        [390, 106.12, 138.6, 120.6],
+        { id: "richLockHand" },
+        "M523 108L1200 85V210L523 185Z",
+      );
       n.artBasket.append(n.artGrounds);
       // The tamper presses in front of the rear wall, onto the powder surface.
       n.artBasket.after(n.artTamper);
@@ -280,6 +365,26 @@
         mask: "url(#richCupFrame)",
       });
       n.artCup.append(n.artSteam);
+      // Contact shadows belong below their objects, never a fixed screen offset.
+      n.artWeigh.prepend(n.artWeighContact);
+      n.artCup.prepend(n.artCupContact);
+      n.artGrinder.prepend(n.artGrinderContact);
+      for (const x of [218, 433]) {
+        const contact = create(
+          "ellipse",
+          {
+            cx: x,
+            cy: 362,
+            rx: 25,
+            ry: 3,
+            fill: "#080c06",
+            opacity: 0.75,
+            class: "generated-layer",
+          },
+          n.artMachine,
+        );
+        n.artMachine.prepend(contact);
+      }
     }
     material(id, region, width, height, dark = false) {
       const pattern = create(
@@ -375,13 +480,13 @@
           "g",
           {
             class: "generated-layer",
-            transform: `translate(${384 + (i % 4) * 8} ${139 + Math.floor(i / 4) * 7}) rotate(${i * 39})`,
+            transform: `translate(${355 + (i % 4) * 4} ${166 + Math.floor(i / 4) * 3}) rotate(${i * 39})`,
           },
           n.artBeanScoop,
         );
         create(
           "use",
-          { href: "#richBean", x: -5, y: -3.5, width: 10, height: 7 },
+          { href: "#richBean", x: -3, y: -2, width: 6, height: 4 },
           group,
         );
         return group;
@@ -396,9 +501,9 @@
       create(
         "circle",
         {
-          cx: 240,
-          cy: 102,
-          r: 20,
+          cx: 237,
+          cy: 123,
+          r: 19,
           fill: "#e5d6b8",
           stroke: "#806139",
           "stroke-width": 0.6,
@@ -410,7 +515,7 @@
         create(
           "path",
           {
-            d: `M${240 + Math.cos(a) * 17.8} ${102 + Math.sin(a) * 17.8}L${240 + Math.cos(a) * (i % 3 ? 16 : 14.7)} ${102 + Math.sin(a) * (i % 3 ? 16 : 14.7)}`,
+            d: `M${237 + Math.cos(a) * 16.8} ${123 + Math.sin(a) * 16.8}L${237 + Math.cos(a) * (i % 3 ? 15 : 13.7)} ${123 + Math.sin(a) * (i % 3 ? 15 : 13.7)}`,
             stroke: "#3e3628",
             "stroke-width": 0.6,
           },
@@ -420,8 +525,8 @@
           const text = create(
             "text",
             {
-              x: 240 + Math.cos(a) * 11.8,
-              y: 103.5 + Math.sin(a) * 11.8,
+              x: 237 + Math.cos(a) * 10.8,
+              y: 124.5 + Math.sin(a) * 10.8,
               "text-anchor": "middle",
               "font-family": "monospace",
               "font-size": 4.1,
@@ -436,14 +541,14 @@
         "path",
         {
           id: "richPressureNeedle",
-          d: "M240 102L226 112.5",
+          d: "M237 123L224 132.5",
           stroke: "#75492a",
           "stroke-width": 1.1,
           "stroke-linecap": "round",
         },
         dial,
       );
-      create("circle", { cx: 240, cy: 102, r: 1.8, fill: "#493b2a" }, dial);
+      create("circle", { cx: 237, cy: 123, r: 1.8, fill: "#493b2a" }, dial);
     }
     update({
       elapsed,
@@ -458,9 +563,8 @@
       collected,
     }) {
       if (!this.active) return;
-      this.backdrop.style.transform = `scale(${reduced ? 1 : 1.02 + Math.sin(elapsed * 0.08) * 0.005})`;
       this.bedDepth.setAttribute("d", this.nodes.artBed.getAttribute("d"));
-      this.bedSurface.setAttribute("cy", top + 4 - heap * 0.15);
+      this.bedSurface.setAttribute("cy", top + 2 - heap);
       this.bedSurface.setAttribute("ry", 7 + heap * 0.15);
       this.bedSurface.setAttribute("opacity", dose > 0.01 ? 1 : 0);
       this.bedSurface.setAttribute(
@@ -471,7 +575,7 @@
       );
       this.pressureNeedle.setAttribute(
         "transform",
-        `rotate(${Math.min(1, Math.max(0, pressure / 12)) * 260} 240 102)`,
+        `rotate(${Math.min(1, Math.max(0, pressure / 12)) * 260} 237 123)`,
       );
       this.crema.setAttribute(
         "patternTransform",
@@ -486,6 +590,12 @@
         stage.id === "extract" && q > 0.005 ? 0.45 : 0,
       );
       this.root.dataset.artPressure = pressure.toFixed(2);
+      this.lockHand.setAttribute(
+        "opacity",
+        stage.id === "setup"
+          ? 1 - Math.min(1, Math.max(0, (stage.progress - 0.65) / 0.3))
+          : 0,
+      );
       this.scoopBeans.forEach((bean, i) =>
         bean.setAttribute("opacity", (1 - collected) * 8 > i ? 1 : 0),
       );

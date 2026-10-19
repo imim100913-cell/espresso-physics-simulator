@@ -109,7 +109,7 @@ export class EspressoScene {
     this.beans.visible = !options.extractionOnly;
     this.liquid = new LiquidSurface(this.scene, {
       top: yBasket - 0.015,
-      bottom: 0.2,
+      bottom: 0.17,
       mobile: this.mobile,
     });
     this.setCutaway(true);
@@ -144,8 +144,9 @@ export class EspressoScene {
       new THREE.MeshStandardMaterial({ color: 0x161d18, roughness: 0.82 }),
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.08;
+    floor.position.y = -0.06;
     floor.receiveShadow = true;
+    this.floor = floor;
     this.scene.add(floor);
   }
   mesh(g, m, parent = this.scene, x = 0, y = 0, z = 0) {
@@ -204,7 +205,7 @@ export class EspressoScene {
       opacity: 0.24,
       depthWrite: false,
     });
-    this.mesh(
+    this.machineBase = this.mesh(
       turned(roundedProfile(0.75, 0.1, 0.035)),
       this.brushed,
       this.scene,
@@ -320,7 +321,7 @@ export class EspressoScene {
     );
     this.cupHandle = cupHandle;
     cupHandle.rotation.z = -Math.PI * 0.8;
-    this.mesh(
+    this.saucer = this.mesh(
       turned(
         [
           [0, 0],
@@ -339,7 +340,7 @@ export class EspressoScene {
       ceramic,
       this.scene,
       0,
-      0.005,
+      0.04,
       0,
     );
     // Rear stand makes every part visibly supported rather than floating.
@@ -840,7 +841,7 @@ export class EspressoScene {
       this.liquid.strands.forEach((s) => (s.mesh.visible = false));
       this.liquid.drops.visible = false;
       this.liquid.crema.scale.setScalar(1.35);
-      this.liquid.pool.scale.set(1.35, 1, 1.35);
+      this.liquid.pool.scale.set(1.35, this.liquid.pool.scale.y, 1.35);
     }
   }
   setGpuView(view) {
@@ -851,7 +852,7 @@ export class EspressoScene {
     }
     if (!view) {
       this.liquid.crema.scale.setScalar(1);
-      this.liquid.pool.scale.set(1, 1, 1);
+      this.liquid.pool.scale.set(1, this.liquid.pool.scale.y, 1);
       this.liquid.drops.visible = true;
     }
     const visible = !view;

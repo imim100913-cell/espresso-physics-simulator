@@ -461,7 +461,7 @@
       return;
     state.sceneLoading = true;
     try {
-      const { EspressoScene } = await import("./renderer.bundle.js?v=4.4.0");
+      const { EspressoScene } = await import("./renderer.bundle.js?v=4.4.1");
       if (
         state.visualDisabled ||
         state.step !== "brew" ||

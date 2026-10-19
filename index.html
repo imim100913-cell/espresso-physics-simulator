@@ -12,7 +12,7 @@
       content="レシピを選び、抽出を見守り、一杯を振り返る。スマホで学ぶエスプレッソシミュレーター。"
     />
     <title>Espresso Lab — あなたの一杯を見つけよう</title>
-    <link rel="stylesheet" href="index.css?v=4.4.0" />
+    <link rel="stylesheet" href="index.css?v=4.4.1" />
   </head>
   <body class="mode-basic" data-step="setup">
     <a class="skip-link" href="#mainContent">メインコンテンツへ</a>
@@ -716,6 +716,7 @@
                 </defs>
                 <g id="artScene" aria-hidden="true">
                   <ellipse
+                    id="artFloorShadow"
                     cx="320"
                     cy="394"
                     rx="193"
@@ -725,6 +726,7 @@
                   />
                   <g id="artWeigh">
                     <ellipse
+                      id="artWeighContact"
                       cx="320"
                       cy="349"
                       rx="116"
@@ -922,6 +924,28 @@
                       fill="#263b2e"
                       stroke="#65816a"
                     />
+                    <g id="artDripTray">
+                      <path
+                        d="M252 349H407L426 356H237Z"
+                        fill="url(#artSteel)"
+                        stroke="#a4b5a0"
+                      />
+                      <path
+                        d="M237 356H426V366H237Z"
+                        fill="#34463a"
+                        stroke="#7d9279"
+                      />
+                      <path
+                        d="M251 366V375M410 366V375"
+                        stroke="url(#artSteel)"
+                        stroke-width="9"
+                      />
+                      <path
+                        d="M260 352H399M255 355H410"
+                        stroke="#1a2920"
+                        stroke-dasharray="3 3"
+                      />
+                    </g>
                     <text
                       x="160"
                       y="330"
@@ -1050,6 +1074,37 @@
                       opacity=".6"
                     />
                   </g>
+                  <g id="artTampingStand" display="none">
+                    <ellipse
+                      cx="320"
+                      cy="351"
+                      rx="61"
+                      ry="5"
+                      fill="#080f0a"
+                      opacity=".65"
+                    />
+                    <path
+                      d="M274 298L279 347Q320 359 361 347L366 298Z"
+                      fill="#232a25"
+                      stroke="#708170"
+                      stroke-width="1.5"
+                    />
+                    <ellipse
+                      cx="320"
+                      cy="298"
+                      rx="46"
+                      ry="6"
+                      fill="#111b14"
+                      stroke="#84917d"
+                      stroke-width="2"
+                    />
+                    <path
+                      d="M287 315V339M353 315V339"
+                      stroke="#576453"
+                      stroke-width="2"
+                      opacity=".5"
+                    />
+                  </g>
                   <g id="artBasket" display="none">
                     <path
                       d="M262 179L271 233Q320 248 369 233L378 179Z"
@@ -1145,47 +1200,53 @@
                     <ellipse />
                   </g>
                   <g id="artShotScale" display="none">
-                    <rect
-                      x="251"
-                      y="366"
-                      width="143"
-                      height="26"
-                      rx="5"
-                      fill="#1c2b22"
-                      stroke="#8ba582"
+                    <ellipse
+                      cx="320"
+                      cy="295"
+                      rx="53"
+                      ry="2.5"
+                      fill="#080c08"
+                      opacity=".65"
                     />
                     <path
-                      d="M249 366H396"
-                      stroke="url(#artSteel)"
-                      stroke-width="4"
+                      d="M276 277H364L372 285H268Z"
+                      fill="#31372f"
+                      stroke="#899180"
+                      stroke-width=".8"
+                    />
+                    <path
+                      d="M268 285H372L369 294Q320 297 271 294Z"
+                      fill="#101a13"
+                      stroke="#64735f"
+                      stroke-width=".8"
+                    />
+                    <rect
+                      x="294"
+                      y="286"
+                      width="52"
+                      height="8"
+                      rx="1.5"
+                      fill="#080e09"
                     />
                     <text
-                      x="266"
-                      y="383"
-                      fill="#a4ba97"
-                      font-size="7"
-                      font-family="monospace"
-                    >
-                      TARE
-                    </text>
-                    <text
                       id="artShotWeight"
-                      x="342"
-                      y="385"
+                      x="320"
+                      y="292.5"
                       text-anchor="middle"
                       fill="#d7ebba"
-                      font-size="13"
+                      font-size="7.5"
                       font-family="monospace"
                     >
                       0.0 g
                     </text>
                   </g>
-                  <g id="artCup" display="none" transform="translate(0 -14)">
+                  <g id="artCup" display="none">
                     <ellipse
+                      id="artCupContact"
                       cx="320"
-                      cy="380"
-                      rx="90"
-                      ry="7"
+                      cy="377"
+                      rx="48"
+                      ry="3"
                       fill="#0d1a12"
                       opacity=".5"
                     />
@@ -1658,13 +1719,14 @@
       <div id="savedRecipeList" class="saved-recipe-list"></div>
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="js/brew-model.js?v=4.4.0"></script>
-    <script src="js/app.js?v=4.4.0"></script>
-    <script src="js/runtime-policy.js?v=4.4.0"></script>
-    <script src="js/brew-workflow.js?v=4.4.0"></script>
-    <script src="js/gpu-journey.js?v=4.4.0"></script>
-    <script src="js/brew-artwork.js?v=4.4.0"></script>
-    <script src="js/brew-illustration.js?v=4.4.0"></script>
-    <script src="js/journey.js?v=4.4.0"></script>
+    <script src="js/brew-model.js?v=4.4.1"></script>
+    <script src="js/app.js?v=4.4.1"></script>
+    <script src="js/runtime-policy.js?v=4.4.1"></script>
+    <script src="js/brew-workflow.js?v=4.4.1"></script>
+    <script src="js/gpu-journey.js?v=4.4.1"></script>
+    <script src="js/brew-layout.js?v=4.4.1"></script>
+    <script src="js/brew-artwork.js?v=4.4.1"></script>
+    <script src="js/brew-illustration.js?v=4.4.1"></script>
+    <script src="js/journey.js?v=4.4.1"></script>
   </body>
 </html>

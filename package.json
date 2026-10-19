@@ -1,6 +1,6 @@
 {
   "name": "espresso-physics-simulator",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "private": true,
   "scripts": {
     "start": "node scripts/serve.cjs",

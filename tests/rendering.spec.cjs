@@ -72,6 +72,43 @@ test("real WebGL compiles the cutaway, powder, wetting, strands, and cinematic p
   expect(values.calls).toBeGreaterThan(20);
   expect(values.stream).toBeTruthy();
   expect(values.plateTriangles).toBeGreaterThan(1000);
+  const contacts = await page.evaluate(() => {
+    const s = testScene,
+      { THREE } = renderModule;
+    s.scene.updateMatrixWorld(true);
+    const cup = new THREE.Box3().setFromObject(s.cupBody);
+    const base = new THREE.Box3().setFromObject(s.machineBase);
+    const p = s.saucer.geometry.attributes.position;
+    let seat = -Infinity;
+    for (let i = 0; i < p.count; i++)
+      if (Math.hypot(p.getX(i), p.getZ(i)) < 0.25)
+        seat = Math.max(seat, p.getY(i));
+    const saucerSeat = s.saucer.localToWorld(new THREE.Vector3(0, seat, 0)).y;
+    const poolBottom = () =>
+      s.liquid.pool.position.y - s.liquid.pool.scale.y / 2;
+    const result = {
+      cup: cup.min.y,
+      saucerSeat,
+      machine: base.min.y,
+      floor: s.floor.position.y,
+      liquidBottom: poolBottom(),
+      cupFloor: cup.min.y + 0.09,
+    };
+    s.setGpuView({ render() {}, dispose() {} });
+    s.step3DPhysics(1 / 30);
+    result.gpuLiquidBottom = poolBottom();
+    s.setGpuView(null);
+    result.restoredLiquidBottom = poolBottom();
+    return result;
+  });
+  expect(contacts.cup).toBeCloseTo(contacts.saucerSeat, 5);
+  expect(contacts.machine).toBeCloseTo(contacts.floor, 5);
+  for (const bottom of [
+    contacts.liquidBottom,
+    contacts.gpuLiquidBottom,
+    contacts.restoredLiquidBottom,
+  ])
+    expect(bottom).toBeCloseTo(contacts.cupFloor, 5);
   await page.evaluate(() => {
     testScene.setCutaway(false);
     testScene.setQuality("cinematic");

@@ -987,17 +987,7 @@ body.mode-basic .advanced-only {
   height: 100%;
   display: block;
   position: relative;
-}
-.art-photo-backdrop {
-  position: absolute;
-  inset: -2px;
-  background-size: cover;
-  background-position: center bottom;
-  display: none;
-  pointer-events: none;
-}
-.photo-ready .art-photo-backdrop {
-  display: block;
+  overflow: hidden;
 }
 .generated-layer,
 .generated-bean {
@@ -1031,9 +1021,6 @@ body.mode-basic .advanced-only {
 }
 .art-rich #artWeighReadout {
   font-size: 20px;
-}
-.art-rich #artScene > ellipse {
-  opacity: 0.12;
 }
 .art-rich #artPrepMat {
   filter: url(#richShadow);
