@@ -1,0 +1,90 @@
+name: Quality checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  model:
+    name: Model and published bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify committed production bundle matches source
+        run: git diff --exit-code -- js/renderer.bundle.js js/renderer.build.json js/renderer.LICENSE.txt package-lock.json
+
+  browser:
+    name: Browser (${{ matrix.suite }})
+    needs: model
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: mobile
+            files: tests/journey.spec.cjs tests/mobile-recovery.spec.cjs tests/brew-illustration.spec.cjs tests/generated-artwork.spec.cjs tests/scene-contacts.spec.cjs
+            require_gpu: "0"
+          - suite: graphics
+            files: tests/rendering.spec.cjs tests/coupled-gpu.spec.cjs
+            require_gpu: "1"
+    env:
+      CI: "true"
+      PLAYWRIGHT_SOFTWARE_GPU: "1"
+      PLAYWRIGHT_REQUIRE_GPU: ${{ matrix.require_gpu }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run browser checks
+        run: npx playwright test ${{ matrix.files }} --workers=1
+      - name: Save report, screenshots and failure traces
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-${{ matrix.suite }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: warn
+
+  quality:
+    name: Quality gate
+    if: ${{ always() }}
+    needs: [model, browser]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      MODEL_RESULT: ${{ needs.model.result }}
+      BROWSER_RESULT: ${{ needs.browser.result }}
+    steps:
+      - name: Require every check to succeed
+        run: |
+          test "$MODEL_RESULT" = success
+          test "$BROWSER_RESULT" = success

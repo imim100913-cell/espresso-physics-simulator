@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { requireGpu } = require("./require-gpu.cjs");
 async function harness(page) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -205,10 +206,7 @@ test("WebGPU wetting reference compiles and conserves source concentration", asy
   page,
 }) => {
   await page.goto("/");
-  const available = await page.evaluate(
-    async () => !!(navigator.gpu && (await navigator.gpu.requestAdapter())),
-  );
-  test.skip(!available, "WebGPU adapter not exposed by this test browser");
+  await requireGpu(page);
   const result = await page.evaluate(async () => {
     const { createWettingReference } =
       await import("/src/gpu/wetting-reference.js");
