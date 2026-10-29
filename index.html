@@ -12,7 +12,7 @@
       content="レシピを選び、抽出を見守り、一杯を振り返る。スマホで学ぶエスプレッソシミュレーター。"
     />
     <title>Espresso Lab — あなたの一杯を見つけよう</title>
-    <link rel="stylesheet" href="index.css?v=4.4.1" />
+    <link rel="stylesheet" href="index.css?v=4.5.0" />
   </head>
   <body class="mode-basic" data-step="setup">
     <a class="skip-link" href="#mainContent">メインコンテンツへ</a>
@@ -1456,16 +1456,7 @@
           <p>数字から、味と次の一歩を見つけよう。</p>
         </div>
         <article class="cup-report">
-          <div class="score-row">
-            <div>
-              <span class="eyebrow">RECIPE BALANCE</span>
-              <div class="score-value">
-                <strong id="shotScore">—</strong><span>/ 100</span>
-              </div>
-              <span class="score-label">レシピバランスの参考点</span>
-            </div>
-            <div class="result-cup" aria-hidden="true">☕</div>
-          </div>
+          <p class="eyebrow" id="reportSummaryLabel">01 / 味の予測</p>
           <h2 id="tasteTitle"></h2>
           <p id="tasteDescription"></p>
           <div id="tasteTags" class="taste-tags"></div>
@@ -1473,6 +1464,32 @@
             味・点数は簡易モデルによる予測です。実際の味や品質を保証する評価ではありません。
           </p>
         </article>
+        <section
+          class="result-explanation"
+          aria-labelledby="resultEvidenceTitle"
+        >
+          <p class="eyebrow">02 / 数値から読めること</p>
+          <h2 id="resultEvidenceTitle">この結果になった手がかり</h2>
+          <dl id="resultEvidence" class="result-evidence"></dl>
+          <p class="small-note">
+            味の説明は数値をもとにした予測です。豆や好みによって感じ方は変わります。
+          </p>
+        </section>
+        <section class="next-experiment">
+          <p class="eyebrow">03 / 次に試すこと</p>
+          <h2 id="nextExperimentTitle">1項目だけ変えて、比べてみよう。</h2>
+          <strong id="nextChangeTitle"></strong>
+          <p id="nextChangeReason"></p>
+          <p id="nextChangeValues" class="change-values"></p>
+          <p class="experiment-note" id="experimentHint">
+            ほかの設定をそろえると、何が影響したかを比べやすくなります。点数が上がることを保証する調整ではありません。
+          </p>
+          <button id="btnApplySuggestion" class="secondary-button">
+            <span id="applySuggestionLabel">この調整で、次の一杯へ</span>
+            <span aria-hidden="true">→</span>
+          </button>
+          <div id="lastComparison" class="comparison" hidden></div>
+        </section>
         <div class="result-metrics">
           <div>
             <span>抽出量</span><strong id="resultYield"></strong
@@ -1499,9 +1516,21 @@
             ><strong id="resultEY"></strong><small>取り出せた成分の割合</small>
           </div>
         </div>
-        <details class="report-details">
-          <summary>この点数になった理由<span>評価の内訳</span></summary>
+        <details class="report-details" id="scoreDetails">
+          <summary>
+            参考点と、その内訳<span>好みの評価とは別の目安</span>
+          </summary>
           <div class="details-body">
+            <div class="score-row">
+              <div>
+                <span class="eyebrow">RECIPE BALANCE</span>
+                <div class="score-value">
+                  <strong id="shotScore">—</strong><span>/ 100</span>
+                </div>
+                <span class="score-label">レシピバランスの参考点</span>
+              </div>
+              <div class="result-cup" aria-hidden="true">☕</div>
+            </div>
             <div id="scoreBreakdown"></div>
             <p class="small-note">
               収率20%への近さ（40点）、推定甘味（25点）、抽出ムラの少なさ（20点）、濃度9%への近さ（15点）を合計。目標量に届かない場合は40点を上限にします。好みや豆の個性を採点するものではありません。
@@ -1602,7 +1631,7 @@
                 <p id="bccZoneTitle"></p>
                 <p id="bccZoneDesc"></p>
               </div>
-              <div>
+              <div id="resultFlavor">
                 <h3>味の強さの予測 / 10</h3>
                 <div class="radar-canvas-wrap">
                   <canvas
@@ -1616,16 +1645,6 @@
             </div>
           </div>
         </details>
-        <section class="next-experiment">
-          <p class="eyebrow">ONE SMALL CHANGE</p>
-          <h2>次の一杯は、ここを変えてみよう。</h2>
-          <strong id="nextChangeTitle"></strong>
-          <p id="nextChangeReason"></p>
-          <button id="btnApplySuggestion" class="secondary-button">
-            この調整で、次の一杯へ <span aria-hidden="true">→</span>
-          </button>
-          <div id="lastComparison" class="comparison" hidden></div>
-        </section>
         <section class="personal-rating">
           <div>
             <h2>このレシピ、気になる？</h2>
@@ -1719,14 +1738,15 @@
       <div id="savedRecipeList" class="saved-recipe-list"></div>
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script src="js/brew-model.js?v=4.4.1"></script>
-    <script src="js/app.js?v=4.4.1"></script>
-    <script src="js/runtime-policy.js?v=4.4.1"></script>
-    <script src="js/brew-workflow.js?v=4.4.1"></script>
-    <script src="js/gpu-journey.js?v=4.4.1"></script>
-    <script src="js/brew-layout.js?v=4.4.1"></script>
-    <script src="js/brew-artwork.js?v=4.4.1"></script>
-    <script src="js/brew-illustration.js?v=4.4.1"></script>
-    <script src="js/journey.js?v=4.4.1"></script>
+    <script src="js/brew-model.js?v=4.5.0"></script>
+    <script src="js/app.js?v=4.5.0"></script>
+    <script src="js/runtime-policy.js?v=4.5.0"></script>
+    <script src="js/brew-workflow.js?v=4.5.0"></script>
+    <script src="js/gpu-journey.js?v=4.5.0"></script>
+    <script src="js/brew-layout.js?v=4.5.0"></script>
+    <script src="js/brew-artwork.js?v=4.5.0"></script>
+    <script src="js/brew-illustration.js?v=4.5.0"></script>
+    <script src="js/brew-report.js?v=4.5.0"></script>
+    <script src="js/journey.js?v=4.5.0"></script>
   </body>
 </html>

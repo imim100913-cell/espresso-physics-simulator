@@ -461,7 +461,7 @@
       return;
     state.sceneLoading = true;
     try {
-      const { EspressoScene } = await import("./renderer.bundle.js?v=4.4.1");
+      const { EspressoScene } = await import("./renderer.bundle.js?v=4.5.0");
       if (
         state.visualDisabled ||
         state.step !== "brew" ||
@@ -851,7 +851,9 @@
   }
   function renderReport() {
     const s = state.shot,
-      p = s.params;
+      p = s.params,
+      report = window.BrewReport.describe(s);
+    state.report = report;
     text(
       "completionTag",
       s.complete ? "✓ 抽出完了" : (s.stopReason ?? "120秒で抽出を終了"),
@@ -864,13 +866,36 @@
     );
     text(
       "resultTitle",
-      s.complete
-        ? "あなたの一杯が、できました。"
-        : "目標量まで、あと少しでした。",
+      report.stopped
+        ? "途中までの一杯を、振り返ろう。"
+        : s.complete
+          ? "あなたの一杯が、できました。"
+          : "目標量には届きませんでした。",
     );
     text("shotScore", s.score);
-    text("tasteTitle", s.title);
-    text("tasteDescription", s.description);
+    text(
+      "reportSummaryLabel",
+      s.complete ? "01 / 味の予測" : "01 / ここまでの結果",
+    );
+    text("tasteTitle", report.title);
+    text("tasteDescription", report.description);
+    $("tasteTags").hidden = !report.hasDrink || !s.complete;
+    $("resultFlavor").hidden = !s.complete;
+    $("scoreDetails").hidden = !s.complete;
+    const evidence = $("resultEvidence");
+    evidence.replaceChildren();
+    for (const item of report.evidence) {
+      const row = document.createElement("div"),
+        label = document.createElement("dt"),
+        value = document.createElement("dd"),
+        explanation = document.createElement("p");
+      label.textContent = item.label;
+      value.textContent = item.value;
+      explanation.textContent = item.explanation;
+      value.append(explanation);
+      row.append(label, value);
+      evidence.append(row);
+    }
     const tags = $("tasteTags");
     tags.replaceChildren();
     for (const label of [
@@ -962,15 +987,29 @@
       }
       timeline.append(row);
     }
-    text("nextChangeTitle", s.next.label);
-    text("nextChangeReason", s.next.reason);
+    text("nextChangeTitle", report.next.label);
+    text("nextChangeReason", report.next.reason);
+    text("nextChangeValues", report.next.change);
+    text(
+      "nextExperimentTitle",
+      report.next.kind === "repeat"
+        ? "まずは、同じ設定で完走してみよう。"
+        : "1項目だけ変えて、比べてみよう。",
+    );
+    text(
+      "experimentHint",
+      report.next.kind === "repeat"
+        ? "設定は変えず、目標量まで抽出してから比べます。"
+        : "ほかの設定をそろえると、何が影響したかを比べやすくなります。点数が上がることを保証する調整ではありません。",
+    );
+    text("applySuggestionLabel", report.next.button);
     const previous = state.previous;
     $("lastComparison").hidden = !previous;
     if (previous) {
       const diff = s.score - previous.score;
       text(
         "lastComparison",
-        `前の一杯と比較：参考点 ${previous.score} → ${s.score} (${diff > 0 ? "+" : ""}${diff}) · 抽出時間 ${fmt(previous.duration)} → ${fmt(s.duration)} 秒。好みに近づいたか、味の予測も見比べてみましょう。`,
+        `前の一杯と比較：参考点 ${previous.score} → ${s.score} (${diff > 0 ? "+" : ""}${diff}) · 抽出時間 ${fmt(previous.duration)} → ${fmt(s.duration)} 秒。${!previous.complete || !s.complete ? "目標量未達の結果を含みます。完了状況も異なるため、点数だけで改善を判断しないようにしましょう。" : "好みに近づいたか、味の予測も見比べてみましょう。"}`,
       );
     }
     renderRating();
@@ -1006,9 +1045,15 @@
     } else if (!state.gpuPending) finishBrew();
   });
   $("btnApplySuggestion").addEventListener("click", () => {
-    const s = state.shot;
-    changeParams({ ...s.params, [s.next.key]: s.next.value }, "次の実験");
-    notify(s.next.label + "設定にしました。抽出して比べてみましょう。");
+    const s = state.shot,
+      next = state.report.next;
+    changeParams(
+      next.kind === "repeat"
+        ? s.params
+        : { ...s.params, [next.key]: next.value },
+      "次の実験",
+    );
+    notify(next.change + "。抽出して比べてみましょう。");
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && state.step === "brew" && !state.paused) {
