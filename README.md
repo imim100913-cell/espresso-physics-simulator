@@ -58,7 +58,7 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
 [Quality checks](https://github.com/imim100913-cell/espresso-physics-simulator/actions/workflows/quality.yml) は、すべてのPR、mainへのpush、手動実行で起動します。
 
 - **Model and published bundle**：固定した依存関係を `npm ci` で導入し、計算・入力・復旧のテストを実行。3Dバンドルを再生成し、公開用のコミット済みファイルと一致することを確認します。ソース変更後のビルド忘れも失敗になります。
-- **Browser (mobile)**：初回から抽出・結果までの操作、保存と比較、アクセシビリティ、スマホ縦横・狭い画面、全工程の接点、画像やGPUの失敗からの復旧を確認します。
+- **Browser (mobile)**：初回から抽出・結果までの操作、保存と比較、アクセシビリティ、スマホ縦横・狭い画面、全工程の接点、画像やGPUの失敗からの復旧を確認します。新しい `*.spec.cjs` は自動でこの系統に入り、既存の描画専用2ファイルはgraphicsで実行します。
 - **Browser (graphics)**：WebGL、SSFR、WebGPUの連成計算、10万・50万粒子のスモークテスト、描画と回収値を確認します。`PLAYWRIGHT_REQUIRE_GPU=1` により、adapterがなくテストを省略する状態は失敗になります。
 - **Quality gate**：上記がすべて成功した場合だけ成功します。失敗・キャンセル・依存ジョブの省略を成功扱いにしません。ブランチ保護の必須チェックに指定する場合の名前は `Quality gate` です。
 

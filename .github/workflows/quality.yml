@@ -42,10 +42,8 @@ jobs:
       matrix:
         include:
           - suite: mobile
-            files: tests/journey.spec.cjs tests/mobile-recovery.spec.cjs tests/brew-illustration.spec.cjs tests/generated-artwork.spec.cjs tests/scene-contacts.spec.cjs
             require_gpu: "0"
           - suite: graphics
-            files: tests/rendering.spec.cjs tests/coupled-gpu.spec.cjs
             require_gpu: "1"
     env:
       CI: "true"
@@ -62,7 +60,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Run browser checks
-        run: npx playwright test ${{ matrix.files }} --workers=1
+        run: npx playwright test --project=${{ matrix.suite }} --workers=1
       - name: Save report, screenshots and failure traces
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
