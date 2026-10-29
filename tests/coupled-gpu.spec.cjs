@@ -1,11 +1,9 @@
 const { test, expect } = require("@playwright/test");
+const { requireGpu } = require("./require-gpu.cjs");
 test.describe.configure({ mode: "serial" });
 async function gpu(page) {
   await page.goto("/");
-  const available = await page.evaluate(
-    async () => !!(navigator.gpu && (await navigator.gpu.requestAdapter())),
-  );
-  test.skip(!available, "WebGPU adapter not exposed by this browser");
+  await requireGpu(page);
 }
 function conserved(d, tolerance = 2e-7) {
   expect(d.nanCount).toBe(0);
