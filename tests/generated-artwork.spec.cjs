@@ -15,6 +15,7 @@ async function noGpu(page) {
 }
 async function start(page) {
   await page.clock.install();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.locator("#btnPrimary").click();
 }
 async function motion(page) {

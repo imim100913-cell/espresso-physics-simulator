@@ -2,6 +2,16 @@ const { defineConfig } = require("@playwright/test");
 module.exports = defineConfig({
   testDir: "tests",
   testMatch: "*.spec.cjs",
+  projects: [
+    {
+      name: "mobile",
+      testIgnore: ["**/rendering.spec.cjs", "**/coupled-gpu.spec.cjs"],
+    },
+    {
+      name: "graphics",
+      testMatch: ["**/rendering.spec.cjs", "**/coupled-gpu.spec.cjs"],
+    },
+  ],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,

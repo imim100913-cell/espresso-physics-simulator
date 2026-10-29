@@ -18,6 +18,8 @@ async function setup(page) {
   });
   await page.goto("/");
   await page.clock.install();
+  // Assertions and screenshots must not advance the shot on a slow CI runner.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.locator("#btnPrimary").click();
   return requests;
 }
