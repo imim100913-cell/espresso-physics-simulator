@@ -110,6 +110,18 @@
           ? M.profiles[value]
           : `${format(value)} ${unit}`;
       next.change = `${label} ${display(p[next.key])} → ${display(next.value)}`;
+      if (next.key !== "pressureProfile") {
+        const amount = +Math.abs(next.value - p[next.key]).toFixed(2);
+        const direction =
+          next.key === "grindSize"
+            ? next.value > p[next.key]
+              ? "粗くして"
+              : "細かくして"
+            : next.value > p[next.key]
+              ? "上げて"
+              : "下げて";
+        next.label = `${label}を${amount} ${unit}${direction}比べる`;
+      }
       next.kind = "change";
       next.button = "この調整で、次の一杯へ";
     }

@@ -50,6 +50,21 @@ test("zero output explains the lack of pressure instead of inventing a taste", (
   assert.equal(report.next.value, "preinfusion");
 });
 
+test("suggestion labels show the actual bounded change rather than the unbounded request", () => {
+  const shot = M.simulate({ ...M.defaults, grindSize: 735 });
+  shot.next = {
+    key: "grindSize",
+    value: 765,
+    label: "30 µm粗くする",
+    reason: "比較",
+  };
+  const report = R.describe(shot);
+  assert.equal(report.next.value, 750);
+  assert.match(report.next.label, /15 µm/);
+  assert.doesNotMatch(report.next.label, /30 µm/);
+  assert.equal(report.next.change, "挽き目 735.0 µm → 750.0 µm");
+});
+
 test("early GPU results retain their actual time and recommend repeating the same recipe", () => {
   for (const output of [0, 6]) {
     const shot = M.fromMeasurements(M.defaults, [
