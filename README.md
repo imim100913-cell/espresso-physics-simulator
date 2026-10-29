@@ -64,6 +64,8 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e
 
 GitHub ActionsではNode 24・Ubuntu 24.04と、lockfileに対応したPlaywright Chromiumを使います。テストは再試行なし・各系統1ワーカーで実行します。レポートと画面は各実行のArtifactsに14日間保存し、失敗時はPlaywright traceも保存します。PRを変更すると古い検証をキャンセルし、新しい内容を検証します。実行権限はリポジトリの読み取りだけです。
 
+工程と生成素材のテストでは、時計を停止して明示的に進めます。低速な実行環境で画面を確認している間に次の工程へ移ることを防ぎ、実行速度に依存せず同じ時点の描写を検証します。
+
 これはブラウザとソフトウェアGPUによる回帰検証です。Pixel 10等の実機での性能・発熱や、抽出モデルの実測校正は別途必要です。GitHub Pagesの既存公開処理は独立して動作するため、マージ前にQuality gateの成功を確認します。
 
 ## 構成
