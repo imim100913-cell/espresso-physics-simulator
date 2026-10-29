@@ -9,7 +9,7 @@
       ["materials", "coffee-materials.webp"],
       ["backdrop", "atelier.webp"],
       ["hands", "barista-hands.webp"],
-    ].map(([key, file]) => [key, new URL(file + "?v=4.4.1", base).href]),
+    ].map(([key, file]) => [key, new URL(file + "?v=4.5.0", base).href]),
   );
   const create = (tag, attrs, parent) => {
     const node = document.createElementNS(ns, tag);

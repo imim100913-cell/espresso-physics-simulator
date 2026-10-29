@@ -12,7 +12,7 @@
       onError,
       onNotice,
     }) {
-      const module = await import("./renderer.bundle.js?v=4.4.1");
+      const module = await import("./renderer.bundle.js?v=4.5.0");
       const session = new GpuBrewSession();
       Object.assign(session, {
         recipe,
@@ -70,7 +70,7 @@
       this.attaching = true;
       let view;
       try {
-        const { CoupledGpuView } = await import("./renderer.bundle.js?v=4.4.1");
+        const { CoupledGpuView } = await import("./renderer.bundle.js?v=4.5.0");
         if (this.cancelled || scene.disposed) return;
         view = new CoupledGpuView(this.solver, scene);
         await window.BrewRuntime.waitFor(view.init(), {

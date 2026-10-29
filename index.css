@@ -1236,11 +1236,65 @@ body.mode-basic .advanced-only {
   color: #e0edcf;
 }
 .report-note {
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.8;
   color: #c5d4ba;
   border-top: 1px solid #ffffff20;
   padding-top: 14px;
+}
+.result-explanation {
+  margin-top: 24px;
+}
+.result-explanation h2 {
+  font-size: 19px;
+  margin: 8px 0 16px;
+}
+.result-evidence {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+.result-evidence > div {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+.result-evidence dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.result-evidence dd {
+  margin: 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.result-evidence p {
+  font-weight: 400;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.next-experiment .change-values {
+  color: var(--green);
+  font-family: var(--mono);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.next-experiment .experiment-note {
+  font-size: 11px;
+}
+.report-details .score-row {
+  margin-top: 16px;
+}
+.report-details .score-label,
+.report-details .score-value > span {
+  color: var(--muted);
+}
+.result-evidence dd p {
+  margin-top: 8px;
 }
 .result-metrics {
   display: grid;
